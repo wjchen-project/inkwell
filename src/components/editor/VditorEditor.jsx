@@ -96,7 +96,44 @@ export default defineComponent({
           // 同一 cache.id 下多文件场景会互相覆盖草稿；M3 将以 IndexedDB 接手。
           // 因此这里明确禁用，避免与未来持久化方案冲突。
           cache: { enable: false },
-          // toolbar 不指定 → 使用 vditor 内置默认全量按钮（Phase 2 §4.2 决议）
+          // 显式精简 vditor 默认工具栏：移除上传、录音、内容主题预览、导出、
+          // 开发者工具、关于、帮助。其它按钮保留以贴合常见 Markdown 编辑器体验。
+          // 「more」子菜单仅保留：both（双栏 / 单栏切换）、code-theme（代码块主题）、
+          // outline（大纲）、preview（即时预览）。Phase 2 §4.2 原决议使用默认全量，
+          // 此处按用户体验反馈裁剪，仍属「全量基础上显式 exclude」风格而非全自定义。
+          toolbar: [
+            'emoji',
+            'headings',
+            'bold',
+            'italic',
+            'strike',
+            'link',
+            '|',
+            'list',
+            'ordered-list',
+            'check',
+            'outdent',
+            'indent',
+            '|',
+            'quote',
+            'line',
+            'code',
+            'inline-code',
+            'insert-before',
+            'insert-after',
+            '|',
+            'table',
+            '|',
+            'undo',
+            'redo',
+            '|',
+            'fullscreen',
+            'edit-mode',
+            {
+              name: 'more',
+              toolbar: ['both', 'code-theme', 'outline', 'preview'],
+            },
+          ],
           // vditor 3.11.x 的 highlightToolbarWYSIWYG() 会在用户选中表格 / 代码块 /
           // 图片 / 引用 / 列表项等元素时无条件调用
           //   vditor.options.customWysiwygToolbar(type, popover)
