@@ -3,9 +3,10 @@ import { useMessage } from 'naive-ui';
 import { useEditorStore } from '@/stores/useEditorStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useFileSystem } from '@/composables/useFileSystem';
+import { useSaveOverride } from '@/composables/useSaveOverride';
 
 /**
- * 自动保存 composable —— 设计文档 §6.2 / M3 §3.2。
+ * 自动保存 composable —— 设计文档 §6.2 / M3 §3.2 / M7 §3.4。
  *
  * 行为要点：
  * - 监听 `contentRef`（vditor input 事件同步到 `useEditorStore.content` 的 ref）；
@@ -16,6 +17,13 @@ import { useFileSystem } from '@/composables/useFileSystem';
  * - 写入失败 → toast + 指数退避重试（1s / 2s / 4s，最多 3 次）；
  *   三次全部失败 → toast「自动保存失败，请手动保存」，dirty 保持。
  * - 组件卸载 → 清防抖计时器；正在进行的 `triggerSave` 不取消，避免半保存状态。
+ *
+ * M7 新增：
+ * - externalState === 'pending' 且 firstOverrideConfirmed === false → 写入前先调
+ *   `useSaveOverride().ensureOverrideConfirmed()` 弹「外部已被修改，继续保存
+ *   将覆盖外部内容？」用户确认后置 firstOverrideConfirmed=true，之后静默写入（§9 #10）。
+ * - 用户在 override 弹窗选「取消」→ 早退，不写入；isSaving 清零；dirty 保持。
+ * - 仅在重试循环开始前弹一次（首次尝试），失败重试不再询问（用户已经知道在覆盖外部）。
  *
  * 调用约束：
  * - 必须在组件 `setup()` 中调用，以让 `useMessage()` 拿到上层 `NMessageProvider`。
@@ -37,6 +45,7 @@ export function useAutoSave(contentRef, options = {}) {
   const settingsStore = useSettingsStore();
   const fileSystem = useFileSystem();
   const message = useMessage();
+  const { ensureOverrideConfirmed } = useSaveOverride();
 
   const isSaving = ref(false);
   const lastError = ref(/** @type {Error | null} */ (null));
@@ -137,6 +146,15 @@ export function useAutoSave(contentRef, options = {}) {
       // toast 策略说明：useFileSystem.saveFile 本身在业务错误上会 toast（如
       // 「保存失败：文件权限已被撤销」），表达原因与当前状态；useAutoSave 不再
       // 中间插 toast，避免一轮重试出现 6 条 toast 刷屏。
+
+      // M7：pending 状态下写入前先弹二次确认。仅问一次，确认后置
+      // firstOverrideConfirmed=true，重试循环里不再询问（用户已经知道在覆盖外部）。
+      const confirmed = await ensureOverrideConfirmed();
+      if (!confirmed) {
+        // 用户取消覆盖外部 → 不写、不 dirty、不动 generation
+        return;
+      }
+
       const MAX_ATTEMPTS = 3;
       let permissionDenied = false;
       for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {

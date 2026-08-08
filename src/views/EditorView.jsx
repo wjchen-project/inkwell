@@ -1,16 +1,19 @@
 import { defineComponent, watch, onBeforeUnmount, onMounted, toRef, inject, ref } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { NAlert, useMessage } from 'naive-ui';
 import { useEditorStore } from '@/stores/useEditorStore';
 import { useAutoSave } from '@/composables/useAutoSave';
 import { useUnsavedGuard } from '@/composables/useUnsavedGuard';
+import { useSaveAs } from '@/composables/useSaveAs';
+import { useExternalWatcher } from '@/composables/useExternalWatcher';
 import { THEME_INJECTION_KEY } from '@/composables/useTheme';
 import { useThemeStyles } from '@/composables/useThemeStyles';
 import VditorEditor from '@/components/editor/VditorEditor.jsx';
 import TitleBar from '@/components/editor/TitleBar.jsx';
+import ExternalChangeDialog from '@/components/editor/ExternalChangeDialog.jsx';
 
 /**
- * 编辑器页 —— 设计文档 §4 / §5.1 / M2 + M3 + M4 + M5。
+ * 编辑器页 —— 设计文档 §4 / §5.1 / M2 + M3 + M4 + M5 + M6 + M7。
  *
  * 挂载时根据 `route.query.mode` 处理：
  *   - `mode=new`  → `editorStore.reset()`，复位空文档状态（句柄 null、dirty=true）
@@ -33,18 +36,35 @@ import TitleBar from '@/components/editor/TitleBar.jsx';
  *     `vditor.setTheme('classic' | 'dark')`
  *   - Naive UI 主题已在 App 根 `NConfigProvider` 中绑定；本组件不重复包裹
  *
+ * M6 接入：
+ *   - 注册 `keydown` 监听器响应 `Ctrl/Cmd+Shift+S` → 调 `useSaveAs().handleSaveAs()`
+ *   - 与 TitleBar 的「另存为」按钮共用同一份 `useSaveAs()` 函数引用，
+ *     UI 与快捷键走完全一致的保存路径（更新句柄 + markSaved + toast）
+ *   - `onMounted` 注册、`onBeforeUnmount` 移除；保证多次挂载场景下不重复绑定
+ *
+ * M7 接入：
+ *   - 调用 `useExternalWatcher(handleRef)`：基于 fileHandle 轮询 + focus 触发 +
+ *     变化检测 → 自动重载 / 弹 ExternalChangeDialog / pending 静默（§9 #13）
+ *   - 模板中渲染 `<ExternalChangeDialog>`，`onResolve` 走 watcher 的
+ *     `handleDialogResolve('keep' | 'reload' | 'later')`
+ *   - handleRef 用 `toRef(editorStore, 'fileHandle')` —— watcher 内部监听此 ref
+ *     变化来启动/停止轮询（如另存为产生新句柄、reset 后变 null）
+ *   - vditor 不需要 prop 联动：watcher reload 时调 `editorStore.markSaved({content})`，
+ *     VditorEditor 自身的 `watch(value)` 自动调 `vditor.setValue(newContent, true)`
+ *
  * 渲染：
  *   <TitleBar />
  *   <VditorEditor value={editorStore.content} theme={effectiveTheme} onUpdate:value={setContent} />
+ *   <ExternalChangeDialog show={...} onResolve={...} />
  *
  * 不在当前里程碑范围：
- *   - useExternalWatcher → M7
- *   - 另存为按钮 → M6
+ *   - orphaned 状态机的实际轮询响应 → M8
  */
 export default defineComponent({
   name: 'EditorView',
   setup() {
     const route = useRoute();
+    const router = useRouter();
     const editorStore = useEditorStore();
     const message = useMessage();
 
@@ -117,6 +137,92 @@ export default defineComponent({
     });
 
     /**
+     * 「直接进入 /editor」防御：
+     *
+     * 场景：
+     *   - 用户刷新 `/editor?mode=open` 页面 → Pinia 状态被重置（fileHandle === null），
+     *     但 URL 仍带 `?mode=open`。原行为是渲染 NAlert「当前未加载任何文件句柄」。
+     *   - 用户从外部链接 / 书签直接进入 `/editor?mode=open` → 同上。
+     *
+     * 行为：跳转到首页 `/`，让用户走 EntryView 重新选择「新建 / 打开」。
+     * 使用 `router.replace` 而非 `router.push`：不在浏览器历史留下 `/editor` 条目，
+     * 避免「返回」键又把用户带回空编辑器。
+     *
+     * 为什么不用 `mode === 'new'` 路径：新建场景下 fileHandle 本来就是 null，
+     * 不应跳转——用户期望看到空白编辑器。
+     *
+     * 拦截避开：
+     *   没有句柄时 `dirty` 没有实际意义（没有可保存的内容），重定向不应该
+     *   触发「未保存拦截」二次确认。跳转前先调 `guard.uninstallGuard()` 卸下
+     *   beforeunload + 路由 beforeEach 守卫，router.replace 即被允许放行。
+     *   这是 M-direct-entry fix 的核心修正。
+     *
+     * 触发：
+     *   - `onMounted` —— 首次挂载（直接 URL 进入 / 刷新）
+     *   - watch `route.query.mode` —— 同 path 不同 query 的导航（防御未来追加
+     *     in-app 跳转路由，比如「从 TitleBar 触发重新打开」）
+     *
+     * 注意：保留模板中的 NAlert「打开状态异常」分支——若 redirect 被路由 guard 拦截
+     * 或渲染时机异常，仍能给用户一个可视提示，不至于呈现一片空白。
+     */
+    function redirectIfDirectEntryMissingHandle() {
+      if (route.query.mode === 'open' && !editorStore.hasFileHandle) {
+        // 卸下拦截：无句柄的「未保存」不是真的未保存，导航不应被拦截
+        guard.uninstallGuard();
+        // .catch 抑制 NavigationFailure：被守卫拦截等情况不需要污染控制台
+        router.replace('/').catch(() => {});
+      }
+    }
+    onMounted(redirectIfDirectEntryMissingHandle);
+    watch(() => route.query.mode, redirectIfDirectEntryMissingHandle);
+
+    /**
+     * M6：「另存为」入口。`handleSaveAs` 与 TitleBar 「另存为」按钮共用，
+     * 保证快捷键与点击行为完全一致。`isSavingAs` 当前未在本视图消费
+     * （TitleBar 用作按钮 loading），但保留返回以便未来做状态徽标。
+     */
+    const { handleSaveAs } = useSaveAs();
+
+    /**
+     * M6：监听 `Ctrl/Cmd+Shift+S` 触发「另存为」。
+     *
+     * 匹配规则：
+     *   - `(e.ctrlKey || e.metaKey)` —— Windows/Linux 用 Ctrl，macOS 用 Cmd
+     *   - `e.shiftKey` —— 必须按住 Shift（与 vditor 可能占用的 Ctrl+S 区分）
+     *   - `e.key === 'S' || e.key === 's'` —— shift 状态下 `e.key` 通常为 'S'；
+     *     接受 's' 作为防御性 fallback（少数键盘布局 / 输入法场景）
+     *
+     * 行为：
+     *   - `e.preventDefault()` 阻止浏览器默认（Firefox 上 Save Page As 之类）
+     *   - `handleSaveAs()` 内部有 `isSavingAs` 防双击，连按快捷键不会重复触发
+     *
+     * 注意：vditor 自带 `Ctrl+S` 触发「保存页面」等浏览器默认行为，但
+     * `Ctrl+Shift+S` 不会与 vditor 冲突（M6 §3.4 决议）。
+     */
+    function handleKeydown(e) {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'S' || e.key === 's')) {
+        e.preventDefault();
+        handleSaveAs();
+      }
+    }
+
+    // 在 onMounted 注册监听；onBeforeUnmount 清理，避免 HMR / 重复挂载产生
+    // 多次绑定的 console 警告。监听器闭包在 setup 阶段创建一次，复用同一份。
+    onMounted(() => {
+      window.addEventListener('keydown', handleKeydown);
+    });
+
+    /**
+     * M7：外部修改检测 watcher。
+     * - `handleRef` 用 `toRef` 拿到 store 上的 ref 视图 —— watcher 内部 watch
+     *   此 ref，handle 变化时自动启停轮询（如「另存为」产生新句柄）。
+     * - 首次打开已有 handle 的文件 → `immediate: true` 让 watch 同步启动轮询。
+     * - 卸载由 composable 内部 `onBeforeUnmount` 清理 interval + focus 监听。
+     */
+    const handleRef = toRef(editorStore, 'fileHandle');
+    const externalWatcher = useExternalWatcher(handleRef);
+
+    /**
      * vditor 初始化失败兜底：上方 toast + console 已由 VditorEditor 处理，
      * 此处补一条用户可读提示，确保使用者了解。
      */
@@ -126,10 +232,14 @@ export default defineComponent({
     }
 
     /**
-     * 卸载钩子：useAutoSave 已通过 onBeforeUnmount 自行清理 pending timer。
-     * 这里仅留日志锚点，便于未来排查「卸载时机 / 半保存」之类问题。
+     * 卸载钩子：
+     * - useAutoSave 已通过 onBeforeUnmount 自行清理 pending timer
+     * - useUnsavedGuard 已通过 onBeforeUnmount 自行清理 beforeunload + 路由守卫
+     * - M6：清理 keydown 监听器
+     * - 仅留日志锚点，便于未来排查「卸载时机 / 半保存」之类问题
      */
     onBeforeUnmount(() => {
+      window.removeEventListener('keydown', handleKeydown);
       console.debug('[EditorView] unmounted');
     });
 
@@ -173,6 +283,14 @@ export default defineComponent({
               />
             )}
           </div>
+          {/* M7：外部修改检测对话框。由 useExternalWatcher 控制显隐，onResolve
+              走 watcher 的 handleDialogResolve('keep' | 'reload' | 'later')。 */}
+          <ExternalChangeDialog
+            show={externalWatcher.showDialog.value}
+            {...{
+              onResolve: (choice) => externalWatcher.handleDialogResolve(choice),
+            }}
+          />
         </div>
       );
     };

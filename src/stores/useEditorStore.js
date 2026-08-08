@@ -18,6 +18,15 @@ export const useEditorStore = defineStore('editor', () => {
   const externalState = ref(/** @type {'clean' | 'pending' | 'orphaned'} */ ('clean'));
   const lastSavedContent = ref('');
   const lastExternalModified = ref(/** @type {number | null} */ (null));
+  /**
+   * M7：首次「保留」后续保存的二次确认标记。
+   * - externalState === 'pending' && firstOverrideConfirmed === false → 下次保存先弹
+   *   「外部已被修改，继续保存将覆盖外部内容？」用户确认后置 true，
+   *   之后静默写入（§9 #10 决议）。
+   * - loadFromFile / reset 时置 false（新会话无需历史标志）。
+   * - 仅在进程内生效，无需持久化。
+   */
+  const firstOverrideConfirmed = ref(false);
 
   // ────────── getters ──────────
   const hasFileHandle = computed(() => fileHandle.value !== null);
@@ -41,6 +50,7 @@ export const useEditorStore = defineStore('editor', () => {
     dirty.value = false;
     externalState.value = 'clean';
     lastExternalModified.value = null;
+    firstOverrideConfirmed.value = false;
   }
 
   /**
@@ -112,6 +122,7 @@ export const useEditorStore = defineStore('editor', () => {
     dirty.value = true;
     externalState.value = 'clean';
     lastExternalModified.value = null;
+    firstOverrideConfirmed.value = false;
   }
 
   return {
@@ -123,6 +134,7 @@ export const useEditorStore = defineStore('editor', () => {
     externalState,
     lastSavedContent,
     lastExternalModified,
+    firstOverrideConfirmed,
     // getters
     hasFileHandle,
     displayName,
