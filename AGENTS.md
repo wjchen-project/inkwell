@@ -88,6 +88,9 @@ md-editor-web/
     │   ├── common/         #   - 跨场景通用（如 BrowserGate）
     │   └── editor/         #   - 编辑器专属（M2+ 填充）
     ├── composables/        # 组合式函数（M3+ 填充）
+    │   ├── useFileSystem.js        #   - File System Access API 封装（M2+）
+    │   ├── useAutoSave.js          #   - 自动保存（M3）
+    │   └── useUnsavedGuard.js      #   - 关闭 + 路由拦截（M4）
     ├── utils/              # 工具函数
     │   ├── browser.js      #   - hasFSAPI / isChromium
     │   └── persistence.js  #   - localStorage 安全读写 + debounce
@@ -189,6 +192,7 @@ md-editor-web/
 - [x] 入口与编辑器骨架（M2）：vditor 接入 + File System Access API 封装（`useFileSystem`）+ 入口页「新建 / 打开」+ `EntryView` / `EditorView` / `VditorEditor` / `TitleBar` + `useEditorStore.reset()`
 - [x] 实现 Markdown 编辑器 UI 增强：自动保存（M3）、关闭拦截（M4）、主题切换 + 设置抽屉（M5）、另存为（M6）、外部修改检测（M7）、外部异常处理（M8）、体验打磨（M9）
   - M3 已完成：`src/composables/useAutoSave.js`（防抖 + 首存另存为 + 1s/2s/4s 退避重试 3 次 + 失败 toast）、`EditorView` 接入、`TitleBar` 增加 dirty primary 圆点（`aria-label="未保存"`）、`useEditorStore.setContent` 容许 undo 回滚到 `lastSavedContent` 时自动清 dirty
+  - M4 已完成：`src/composables/useUnsavedGuard.js` 暴露 `installGuard()` / `uninstallGuard()`——`window.beforeunload`（仅浏览器原生弹窗） + Vue Router `beforeEach`（从 `/editor` 离开时若 dirty 弹原生 `confirm()` 二次确认，自动保存进行中则 `waitUntil(isSaving=false, timeout=10s)`）；`EditorView` 在 `onMounted` 安装、`onBeforeUnmount` 由 composable 内部清理，幂等不重复注册
 - [ ] 选型 Markdown 解析库（如 `marked` / `markdown-it`）并封装为 `src/utils/markdown/`
 - [ ] 支持常用编辑能力：标题、列表、代码块、表格、引用、链接、图片
 - [ ] 内容持久化：`localStorage` 已就位（设置）；`IndexedDB` / 文件系统接口（取决于 Web 容器能力）
@@ -233,4 +237,6 @@ npm run preview
 
 ---
 
-_最后更新：完成 M3 自动保存 + 未保存指示（新增 `src/composables/useAutoSave.js`：防抖 + 首存另存为 + 1s/2s/4s 退避重试 3 次 + 失败 toast + 中断 generation 机制 + `cancelPending`；`EditorView` `setup()` 接入 `useAutoSave(editorStore.content)`；`TitleBar` 新增 primary 色 8px 圆点（`role="status" aria-label="未保存"`），不再依赖 `store.displayName` 内置 `●` 后缀，无句柄时右侧 NTag 改为「新建文档（首次保存将弹出对话框）」；`useEditorStore.setContent` 改为 `dirty = value !== lastSavedContent`，容许 undo 回滚 / programmatic 重置时圆点消失）。后续修复：① `VditorEditor.jsx` 兑底 vditor 3.11.x `customWysiwygToolbar` 缺失错误（选中表格/代码块等元素时 vditor 内部会无条件调用 `vditor.options.customWysiwygToolbar(...)`，类型上该选项为 optional 但运行时未做 optional-chaining 守卫），提供空函数避免控制台报错；② `useAutoSave.js` 移除退避间插的「第 N 次重试中」toast，避免与 `useFileSystem.saveFile` 的「保存失败：…」toast 重叠刷屏，仅保留末轮「自动保存失败，请手动保存」汇总提示；③ `useFileSystem.saveFile` 返回值改为 `{ ok, error }`（保留原 toast 行为），新增 `requestPermission(handle, mode?)` 与 `saveFileWithPermission(handle, content)` 封装：首次写入遇 `NotAllowedError` / `SecurityError` 时主动调 `handle.requestPermission({ mode: 'readwrite' })` 弹系统授权框，授权后重试一次写入；`TitleBar` 手动保存与 `useAutoSave` 首次自动保存都改走 `saveFileWithPermission`，权限被拒后跳过退避重试并明确提示「未授予写入权限，请点击编辑器「保存」按钮重新授权」）；同步更新 `AGENTS.md` §6 路线图。任意超出「占位脚手架」的功能实现都属于**较大更新**，请同步更新本文件。_
+_最后更新：完成 M4 关闭拦截（新增 `src/composables/useUnsavedGuard.js`：① `installGuard()` 注册 `window.beforeunload` + Vue Router `beforeEach` 两路拦截——`beforeunload` 仅在 dirty=true 时设 `e.preventDefault() + e.returnValue = ''` 触发浏览器原生「离开 / 取消」；`router.beforeEach` 仅当 `from.path === '/editor'` 且 `to.path !== '/editor'` 且 dirty=true 时拦截，先 `await waitUntil(!isSaving, timeout=10s)` 等自动保存完成，再次判断 dirty 后 `window.confirm()` 二次确认（方案 A `dispatchEvent` 逻辑上不可行·见 M4 §3.2 注解，本实现用 `window.confirm()` 作为浏览器原生弹窗后备，与 §9 #18 决议精神一致）；② `uninstallGuard()` 幂等清理两个监听器，避免 HMR / 重复挂载下 console 重复警告；③ `onBeforeUnmount` 兑底清理调用方忘记 uninstall 的情况；④ `installGuard()` 幂等，重复调用不重复注册。`EditorView.jsx` `setup()` 中：`useAutoSave` 返回 `isSaving`、新增 `toRef(editorStore, 'dirty')` 作为 `isDirtyRef`，在 `onMounted(() => guard.installGuard())` 安装（保证 router 初始化后再注册守卫）。同步更新 `AGENTS.md` §3 目录结构与 §6 路线图。任意超出「占位脚手架」的功能实现都属于**较大更新**，请同步更新本文件。_
+
+_历史：M3 自动保存 + 未保存指示（新增 `src/composables/useAutoSave.js`：防抖 + 首存另存为 + 1s/2s/4s 退避重试 3 次 + 失败 toast + 中断 generation 机制 + `cancelPending`；`EditorView` `setup()` 接入 `useAutoSave(editorStore.content)`；`TitleBar` 新增 primary 色 8px 圆点（`role="status" aria-label="未保存"`），不再依赖 `store.displayName` 内置 `●` 后缀，无句柄时右侧 NTag 改为「新建文档（首次保存将弹出对话框）」；`useEditorStore.setContent` 改为 `dirty = value !== lastSavedContent`，容许 undo 回滚 / programmatic 重置时圆点消失）。后续修复：① `VditorEditor.jsx` 兑底 vditor 3.11.x `customWysiwygToolbar` 缺失错误（选中表格/代码块等元素时 vditor 内部会无条件调用 `vditor.options.customWysiwygToolbar(...)`，类型上该选项为 optional 但运行时未做 optional-chaining 守卫），提供空函数避免控制台报错；② `useAutoSave.js` 移除退避间插的「第 N 次重试中」toast，避免与 `useFileSystem.saveFile` 的「保存失败：…」toast 重叠刷屏，仅保留末轮「自动保存失败，请手动保存」汇总提示；③ `useFileSystem.saveFile` 返回值改为 `{ ok, error }`（保留原 toast 行为），新增 `requestPermission(handle, mode?)` 与 `saveFileWithPermission(handle, content)` 封装：首次写入遇 `NotAllowedError` / `SecurityError` 时主动调 `handle.requestPermission({ mode: 'readwrite' })` 弹系统授权框，授权后重试一次写入；`TitleBar` 手动保存与 `useAutoSave` 首次自动保存都改走 `saveFileWithPermission`，权限被拒后跳过退避重试并明确提示「未授予写入权限，请点击编辑器「保存」按钮重新授权」）。_

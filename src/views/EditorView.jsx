@@ -1,14 +1,15 @@
-import { defineComponent, watch, onBeforeUnmount, toRef } from 'vue';
+import { defineComponent, watch, onBeforeUnmount, onMounted, toRef } from 'vue';
 import { useRoute } from 'vue-router';
 import { NAlert, useMessage } from 'naive-ui';
 import { useEditorStore } from '@/stores/useEditorStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useAutoSave } from '@/composables/useAutoSave';
+import { useUnsavedGuard } from '@/composables/useUnsavedGuard';
 import VditorEditor from '@/components/editor/VditorEditor.jsx';
 import TitleBar from '@/components/editor/TitleBar.jsx';
 
 /**
- * 编辑器页 —— 设计文档 §4 / §5.1 / M2 + M3。
+ * 编辑器页 —— 设计文档 §4 / §5.1 / M2 + M3 + M4。
  *
  * 挂载时根据 `route.query.mode` 处理：
  *   - `mode=new`  → `editorStore.reset()`，复位空文档状态（句柄 null、dirty=true）
@@ -20,12 +21,17 @@ import TitleBar from '@/components/editor/TitleBar.jsx';
  *     · 首存走 saveAsFile；后续走 saveFile；失败 1s/2s/4s 退避重试
  *   - 卸载时由 composable 内部清理 pending timer；onBeforeUnmount 仅做日志。
  *
+ * M4 接入：
+ *   - 接收 `useAutoSave` 返回的 `isSaving` ref，连同 `editorStore.dirty` 一起
+ *     传给 `useUnsavedGuard`；composable 在 onMounted 注册
+ *     beforeunload + router.beforeEach 拦截，卸载时由其内部 onBeforeUnmount 兜底。
+ *
  * 渲染：
  *   <TitleBar />
  *   <VditorEditor value={editorStore.content} theme={...} onUpdate:value={setContent} />
  *
  * 不在当前里程碑范围：
- *   - useExternalWatcher / useUnsavedGuard → M7 / M4
+ *   - useExternalWatcher → M7
  *   - 主题切换（目前固定 'light'，M5 useTheme 接管 settingsStore.theme）
  *   - SettingsDrawer / 另存为按钮 → M5 / M6
  */
@@ -70,9 +76,26 @@ export default defineComponent({
      * Pinia setup store 返出的 ref 在通过 proxy 访问时会自动 unwrap 成普通值，
      * 直接传 `editorStore.content` 会拿到 string 原值，丢给 `watch()` 后被当作
      * 不可追踪的 primitive，watcher 永远不会触发 —— 这是个陷阱。
+     *
+     * 同时把返回的 `isSaving` 暴露给 M4 的 `useUnsavedGuard`，让路由守卫
+     * 能在自动保存进行中先等待完成、再判断 dirty。
      */
     const contentRef = toRef(editorStore, 'content');
-    useAutoSave(contentRef);
+    const { isSaving } = useAutoSave(contentRef);
+
+    /**
+     * M4：未保存拦截。把 `dirty` 与 `isSaving` 两个 ref 交给 composable，
+     * 在 `onMounted` 安装（保证 router 实例就绪后再注册守卫，避免 setup 阶段
+     * 任何 microtask 提前触发导航守卫的边角情况）；卸载由 composable 内部
+     * `onBeforeUnmount` 兜底。
+     *
+     * `dirty` 同样用 `toRef` 转显式 Ref，理由同 contentRef。
+     */
+    const isDirtyRef = toRef(editorStore, 'dirty');
+    const guard = useUnsavedGuard(isDirtyRef, isSaving);
+    onMounted(() => {
+      guard.installGuard();
+    });
 
     /**
      * vditor 初始化失败兜底：上方 toast + console 已由 VditorEditor 处理，
