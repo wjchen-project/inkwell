@@ -62,6 +62,13 @@ export default defineComponent({
           // 因此这里明确禁用，避免与未来持久化方案冲突。
           cache: { enable: false },
           // toolbar 不指定 → 使用 vditor 内置默认全量按钮（Phase 2 §4.2 决议）
+          // vditor 3.11.x 的 highlightToolbarWYSIWYG() 会在用户选中表格 / 代码块 /
+          // 图片 / 引用 / 列表项等元素时无条件调用
+          //   vditor.options.customWysiwygToolbar(type, popover)
+          // 但该选项在类型上声明为 `customWysiwygToolbar?(...)`，运行时未做
+          // optional-chaining 守卫。未注入时就会报 `is not a function`。
+          // 本项目暂不扩展浮动工具栏，提供空函数兑底，避免控制台报错。
+          customWysiwygToolbar: () => {},
           after: () => {
             // setValue 不应触发 input 回调（仅用户操作会触发），所以不会形成回环
             vditor.setValue(props.value || '', true);

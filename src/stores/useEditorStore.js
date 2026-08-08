@@ -46,16 +46,19 @@ export const useEditorStore = defineStore('editor', () => {
   /**
    * 编辑器内容变更（vditor input 事件触发）。
    *
-   * 仅当新内容与 lastSavedContent 不一致时将 dirty 置为 true，
-   * 避免「输入回原值」等无意义场景产生虚假脏标。
+   * 同时更新 `content` 与 `dirty`：
+   * - 与 `lastSavedContent` 不一致 → `dirty = true`
+   * - 与 `lastSavedContent` 一致 → `dirty = false`
+   *
+   * 容许以下场景的圆点消失：
+   * - undo 回滚到与上次保存一致的状态（M3 §4.1 内容回环检测）
+   * - 程序内部因 markSaved / loadFromFile 之外的重置路径再写入相同内容
    *
    * @param {string} value 新的 Markdown 内容
    */
   function setContent(value) {
     content.value = value;
-    if (value !== lastSavedContent.value) {
-      dirty.value = true;
-    }
+    dirty.value = value !== lastSavedContent.value;
   }
 
   /**

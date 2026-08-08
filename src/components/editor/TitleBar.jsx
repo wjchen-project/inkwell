@@ -4,19 +4,23 @@ import { useEditorStore } from '@/stores/useEditorStore';
 import { useFileSystem } from '@/composables/useFileSystem';
 
 /**
- * 编辑器顶部标题栏 —— 设计文档 §5.2 / M2 §3.4。
+ * 编辑器顶部标题栏 —— 设计文档 §5.2 / M2 + M3。
  *
- * M2 范围：
- *   - 文件名显示（来自 `useEditorStore.displayName`，dirty 时附加 `●`，但圆点
- *     颜色区分留待 M3，本里程碑仅依赖 store 自带的纯文本后缀）
- *   - 「保存」按钮：调用 `useFileSystem.saveFile()`；无句柄（新建未保存）时隐藏
+ * M2 已就位：
+ *   - 文件名（dirty 时由 store.displayName 附加 `●` 文本兜底，但 UI 主指示
+ *     由 M3 引入的独立圆点接管）
+ *   - 「保存」按钮：调用 `useFileSystem.saveFile()`
  *   - 「返回」按钮：回到 `/`（M4 之前不做未保存拦截）
  *
- * 不在 M2 范围（M3+ 接入）：
- *   - dirty 圆点的颜色定制（Phase 2 §9 #8 决议：primary 主题色）
- *   - 外部状态徽标（pending / orphaned）
- *   - 「设置」按钮（SettingsDrawer）
- *   - vditor 工具栏集成（另存为 / 设置按钮）
+ * M3 新增：
+ *   - 「未保存」圆点：v-if `dirty`，使用 Naive UI primary 主题色（§9 #8），
+ *     `aria-label="未保存"`（§8 可访问性）
+ *
+ * 不在本里程碑范围：
+ *   - 外部状态徽标（pending / orphaned）→ M7 / M8
+ *   - 「设置」按钮 → M5
+ *   - 另存为按钮 → M6
+ *   - 「自动保存中」loading 指示 → 当前由 vditor 内置指示 + store.dirty 协同
  */
 export default defineComponent({
   name: 'TitleBar',
@@ -28,6 +32,7 @@ export default defineComponent({
 
     /**
      * 「保存」按钮的可用条件：有句柄 + 已有未保存变更 + 当前不在保存中。
+     * 无句柄时自动保存首次走「另存为」（由 useAutoSave 接管），手动按钮隐藏。
      */
     const canSave = computed(() => editorStore.hasFileHandle && editorStore.dirty && !saving.value);
 
@@ -35,13 +40,21 @@ export default defineComponent({
       if (!editorStore.hasFileHandle) return;
       saving.value = true;
       try {
-        const ok = await fileSystem.saveFile(editorStore.fileHandle, editorStore.content);
+        // 使用 saveFileWithPermission：首次写入遇到权限错误时会自动请求一次写权限。
+        // 授权后重试仍失败 → 使用 FileSystem 已 toast 过 + 给出“需要手动保存”以外的上下文。
+        const { ok, permissionRequested, permissionGranted } =
+          await fileSystem.saveFileWithPermission(editorStore.fileHandle, editorStore.content);
         if (ok) {
           editorStore.markSaved({ content: editorStore.content });
           message.success('保存成功');
+          return;
         }
+        // saveFileWithPermission 返回 false
+        if (permissionRequested && !permissionGranted) {
+          message.warning('未授予写入权限，已取消保存。请在浏览器弹窗中点击「允许」后重试。');
+        }
+        // 其他错误场景 useFileSystem 内部已 toast，这里仅留日志便于排错
       } catch (err) {
-        // useFileSystem 已经 toast 过；此处仅记录以便排错
         console.warn('[TitleBar] save failed:', err);
       } finally {
         saving.value = false;
@@ -61,9 +74,24 @@ export default defineComponent({
         }}
       >
         <NSpace align="center" size="small">
-          {/* 文件名（dirty 时由 store 自动附加 ●） */}
-          <span style={{ fontWeight: 500 }}>{editorStore.displayName}</span>
-          {/* M2 调试期保留 store 状态标签，方便肉眼观察 — 后续阶段可视情移除 */}
+          {/* M3：未保存圆点（primary 主题色，独立渲染以保证 a11y） */}
+          {editorStore.dirty ? (
+            <span
+              class="editor-title-bar__dirty-dot"
+              role="status"
+              aria-label="未保存"
+              title="有未保存的修改"
+              style={{
+                display: 'inline-block',
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                background: 'var(--n-primary-color, #18a058)',
+              }}
+            />
+          ) : null}
+          <span style={{ fontWeight: 500 }}>{editorStore.fileName}</span>
+          {/* 外部状态：M3 暂时保留 NTag 便于肉眼观察；M7/M8 接入更精细的徽标 */}
           <NTag size="small" type={editorStore.externalState === 'clean' ? 'default' : 'warning'}>
             external: {editorStore.externalState}
           </NTag>
@@ -80,8 +108,10 @@ export default defineComponent({
               保存
             </NButton>
           ) : (
+            // 无句柄时手动保存按钮隐藏：首次保存由 useAutoSave 走 saveAsFile。
+            // 保留一个 info tag 表达「新建文档」语义，避免右侧空白。
             <NTag size="small" type="info">
-              新建文档（M2 暂未支持另存为）
+              新建文档（首次保存将弹出对话框）
             </NTag>
           )}
           <NButton size="small" quaternary onClick={() => history.back()}>
