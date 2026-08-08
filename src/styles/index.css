@@ -1,0 +1,28 @@
+/**
+ * 全局样式入口（M1 占位）。
+ *
+ * - 当前阶段只声明最小重置；
+ * - vditor 主题覆盖将在 M2 引入 `vditor-overrides.css` 并补充于此；
+ * - Naive UI 主题切换通过 `NConfigProvider` 注入 CSS 变量，
+ *   不在此处写死主题色。
+ */
+
+html,
+body,
+#app {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+  background: var(--n-color, #ffffff);
+  color: var(--n-text-color, #333333);
+}
+
+* {
+  box-sizing: border-box;
+}
