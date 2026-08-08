@@ -24,8 +24,9 @@
 
 - **Vue `^3.5.40`** —— Composition API，**JSX** 渲染函数（`@vitejs/plugin-vue-jsx`），不使用 `<template>` / `<script setup>`
 - **Vue Router `^5.2.0`** —— `createWebHistory(import.meta.env.BASE_URL)`
-- **Pinia `^4.0.2`** —— 状态管理（当前唯一 store 是占位 `useCounterStore`）
+- **Pinia `^4.0.2`** —— 状态管理（`useEditorStore` / `useSettingsStore`，详见 [§6](#6-待补齐--路线图持续更新)）
 - **Naive UI `^2.44.1`** —— UI 组件库，按需全局注册，详见 [§5.7](#57-第三方组件与-plugins-约定)；CSS-in-JS，无需单独引入样式文件
+- **vditor `^3.11.2`** —— Markdown 编辑器核心（M2 起接入）。**不在** `src/plugins/` 中注册（它不是 UI 组件库），由 `src/components/editor/VditorEditor.jsx` 直接 import；CSS 由 `src/styles/index.css` 顶部 `@import 'vditor/dist/index.css';` 引入
 
 ### 构建 / 工程化 (`devDependencies`)
 
@@ -185,7 +186,8 @@ md-editor-web/
 
 - [x] 集成 Naive UI（按需全局注册，封装于 `src/plugins/naive.js`）
 - [x] 基础设施（M1）：目录骨架 + Pinia stores（`useEditorStore` / `useSettingsStore`）+ `BrowserGate` + localStorage 持久化
-- [ ] 实现 Markdown 编辑器 UI（编辑区 + 实时预览，vditor 接入在 M2）
+- [x] 入口与编辑器骨架（M2）：vditor 接入 + File System Access API 封装（`useFileSystem`）+ 入口页「新建 / 打开」+ `EntryView` / `EditorView` / `VditorEditor` / `TitleBar` + `useEditorStore.reset()`
+- [ ] 实现 Markdown 编辑器 UI 增强：自动保存（M3）、关闭拦截（M4）、主题切换 + 设置抽屉（M5）、另存为（M6）、外部修改检测（M7）、外部异常处理（M8）、体验打磨（M9）
 - [ ] 选型 Markdown 解析库（如 `marked` / `markdown-it`）并封装为 `src/utils/markdown/`
 - [ ] 支持常用编辑能力：标题、列表、代码块、表格、引用、链接、图片
 - [ ] 内容持久化：`localStorage` 已就位（设置）；`IndexedDB` / 文件系统接口（取决于 Web 容器能力）
@@ -230,4 +232,4 @@ npm run preview
 
 ---
 
-_最后更新：完成 M1 基础设施（新建 `views/` / `components/{common,editor}` / `composables/` / `utils/` / `styles/` 目录骨架；`useEditorStore` + `useSettingsStore` + 启动恢复 `hydrateSettings` + `$subscribe` 防抖 300ms 持久化；`router/routes.js` + `/` + `/editor` 懒加载；`BrowserGate` 组件 + `utils/browser.js` + `utils/persistence.js`；`App.jsx` 改造为 `<BrowserGate><router-view/></BrowserGate>` 结构；`main.js` 增加 hydrate / installPersistence 启动序列）；完成第五阶段 9 份实施里程碑文档（M1 基础设施 / M2 入口与编辑器骨架 / M3 自动保存+未保存指示 / M4 关闭拦截 / M5 主题+设置 / M6 另存为 / M7 外部修改检测 / M8 外部异常处理 / M9 体验打磨），每份含目标 / 依赖 / 交付内容 / 验收标准；完成第四阶段设计文档（《系统实现设计》：架构 / 目录 / Pinia stores / 路由 / 关键组件 / Composables / 关键流程 / 实现里程碑 / 技术决策追溯）；澄清访谈完成（18 项决议），同步更新 Phase 2 §5.3 + §9 / Phase 3 需求文档（移除多文档 Tab，核心能力收敛为「另存为 / 外部修改检测 / 外部异常处理 / 未保存拦截」）；Phase 1 §9 交叉引用 Phase 2/3 决议；完成第三阶段需求文档初版；第二阶段需求调研（《Markdown 编辑器 + 体验增强》，含 vditor 选型 / 主题切换 / 自动保存 / 未保存指示 / 关闭提示等 9 项决策）；新增 `docs/` 业务文档目录 + 第一阶段《核心编辑流程》；组件改用 JSX（`@vitejs/plugin-vue-jsx`），删除 `App.vue` / 新建 `App.jsx`；引入 Naive UI（按需全局注册）+ `src/plugins/` 目录约定 + Oxfmt 改为 `semi: true` / `tabWidth: 2`。任何超出“占位脚手架”的功能实现都属于**较大更新**，请同步更新本文件。_
+_最后更新：完成 M2 入口与编辑器骨架（`npm i vditor@^3.11.2`；新增 `src/components/editor/VditorEditor.jsx`（生命周期 + 事件桥接 + `setTheme` + `disabled` 接口就位 + 初始化错误兑底）；`src/components/editor/TitleBar.jsx`（文件名 + 「保存」按钮调用 `useFileSystem.saveFile`，点 M3+ 接入 dirty 圆点 / 外部状态徽标 / 设置按钮）；`src/composables/useFileSystem.js`（`openFile` / `saveFile` / `saveAsFile` / `getMetadata` + AbortError 静默 / NotFound / NotAllowed / Security 分类处理）；`src/utils/file.js`（`.md` + `.markdown` 扩展名校验 + picker types 复用）；`src/views/EntryView.jsx` 重写（新建跳路由 + 打开走 `openFile` + 成功后 `loadFromFile` + 非 Chromium toast）；`src/views/EditorView.jsx` 重写（TitleBar + VditorEditor + `mode=new` 触发 `editorStore.reset()` + 打开状态异常兑底）；`useEditorStore` 新增 `reset()` action；`styles/index.css` 顶部 `@import 'vditor/dist/index.css';`；`AGENTS.md` §2 依赖 / §6 路线图同步更新。同步完成 M1 基础设施 / 第五阶段 9 份里程碑文档 / 第四阶段设计文档 / 18 项澄清决议 / 第三阶段需求文档（移除 Tab，收敛为「另存为 / 外部修改检测 / 外部异常处理 / 未保存拦截」）/ 第二阶段需求调研（vditor 选型 / 主题 / 自动保存 / 未保存指示 / 关闭提示等 9 项决策）/ `docs/` 业务文档目录与第一阶段《核心编辑流程》；组件改用 JSX + 引入 Naive UI 按需全局 + `src/plugins/` 目录约定 + Oxfmt `semi: true` / `tabWidth: 2`。任何超出“占位脚手架”的功能实现都属于**较大更新**，请同步更新本文件。_
