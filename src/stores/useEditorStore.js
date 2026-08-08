@@ -95,6 +95,22 @@ export const useEditorStore = defineStore('editor', () => {
     externalState.value = 'orphaned';
   }
 
+  /**
+   * 重置为「新建空文档」状态。
+   *
+   * 由 `EditorView` 在 `route.query.mode === 'new'` 时调用，避免脏文档残留
+   * 影响新会话。`dirty` 设为 `true` 表示「尚未落盘」的空文档。
+   */
+  function reset() {
+    fileHandle.value = null;
+    fileName.value = 'untitled.md';
+    content.value = '';
+    lastSavedContent.value = '';
+    dirty.value = true;
+    externalState.value = 'clean';
+    lastExternalModified.value = null;
+  }
+
   return {
     // state
     fileHandle,
@@ -114,5 +130,6 @@ export const useEditorStore = defineStore('editor', () => {
     updateFileHandle,
     setExternalState,
     markOrphaned,
+    reset,
   };
 });

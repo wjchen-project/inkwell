@@ -1,11 +1,16 @@
 /**
- * 全局样式入口（M1 占位）。
+ * 全局样式入口。
  *
- * - 当前阶段只声明最小重置；
- * - vditor 主题覆盖将在 M2 引入 `vditor-overrides.css` 并补充于此；
+ * - 当前阶段声明最小重置；
+ * - vditor 主题覆盖将在 M5 引入 `vditor-overrides.css` 并补充于此；
  * - Naive UI 主题切换通过 `NConfigProvider` 注入 CSS 变量，
  *   不在此处写死主题色。
+ *
+ * M2 引入 vditor 默认样式（M2 §3.5），便于编辑器呈现原生外观；
+ * 主题色冲突 / 细节调整留待 M5。
  */
+
+@import 'vditor/dist/index.css';
 
 html,
 body,
