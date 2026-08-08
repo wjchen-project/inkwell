@@ -110,7 +110,7 @@ M2 仅显示文件名；M3 加入：
   - 颜色：Naive UI primary（通过 CSS 变量或 inline style）
   - `aria-label="未保存"`
 - `filename.md`：`useEditorStore.fileName`
-- 外部状态徽标：M7-M8 加入（M3 不显示）
+- 外部状态徽标：M3 临时保留一个中性 `NTag`（`external: <state>`）便于肉眼观察，M7/M8 接入更精细徽标后移除
 
 ### 3.4 修改文件
 
@@ -148,12 +148,20 @@ M2 仅显示文件名；M3 加入：
 
 #### 失败处理（Phase 2 §9 #4）
 
-- [ ] 写入失败一次 → toast「自动保存失败：<原因>，正在重试…」 + 重试
-- [ ] 重试 1s 后再次失败 → 第二次 toast + 重试
-- [ ] 重试 2s 后再次失败 → 第三次 toast + 重试
-- [ ] 三次全部失败 → toast「自动保存失败，请手动保存」 + dirty 保持
-- [ ] 重试中 `retryCount` 反映当前次数
-- [ ] 重试成功 → toast 消失 + dirty 清零
+> **实现说明（与设计差异）**：`useFileSystem.saveFile` 已对各类业务错误
+> 内部 toast（如「保存失败：文件权限已被撤销」）。`useAutoSave` **不重复**
+> 中间 toast，仅在 3 次全部失败时给一条汇总提示，避免一轮重试出现 4–6 条
+> toast 刷屏。`useAutoSave` 的第一次写入走 `saveFileWithPermission`，遇权限
+> 错误时主动调一次 `handle.requestPermission({ mode: 'readwrite' })`；权限
+> 被拒则跳出退避循环，给出「未授予写入权限，请点击编辑器「保存」按钮重新授权」
+> 的差异化提示。
+
+- [ ] 写入失败（业务错误，如 `NotFoundError` / `NotAllowedError` / IO）→ toast 由 `useFileSystem.saveFile` 触发
+- [ ] 写入失败（权限错误）→ `saveFileWithPermission` 自动弹系统授权框一次，授权后重试
+- [ ] 三次全部失败（业务错误）→ toast「自动保存失败，请手动保存」 + dirty 保持
+- [ ] 三次失败但权限被拒 → toast「未授予写入权限，请点击编辑器「保存」按钮重新授权」 + dirty 保持（不再退避）
+- [ ] 重试中 `retryCount` 反映当前次数（0 / 1 / 2）
+- [ ] 重试成功 → `dirty = false` + `retryCount = 0`
 
 #### 自动保存设置
 
