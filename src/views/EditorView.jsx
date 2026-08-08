@@ -1,15 +1,16 @@
-import { defineComponent, watch, onBeforeUnmount, onMounted, toRef } from 'vue';
+import { defineComponent, watch, onBeforeUnmount, onMounted, toRef, inject, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { NAlert, useMessage } from 'naive-ui';
 import { useEditorStore } from '@/stores/useEditorStore';
-import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useAutoSave } from '@/composables/useAutoSave';
 import { useUnsavedGuard } from '@/composables/useUnsavedGuard';
+import { THEME_INJECTION_KEY } from '@/composables/useTheme';
+import { useThemeStyles } from '@/composables/useThemeStyles';
 import VditorEditor from '@/components/editor/VditorEditor.jsx';
 import TitleBar from '@/components/editor/TitleBar.jsx';
 
 /**
- * 编辑器页 —— 设计文档 §4 / §5.1 / M2 + M3 + M4。
+ * 编辑器页 —— 设计文档 §4 / §5.1 / M2 + M3 + M4 + M5。
  *
  * 挂载时根据 `route.query.mode` 处理：
  *   - `mode=new`  → `editorStore.reset()`，复位空文档状态（句柄 null、dirty=true）
@@ -26,22 +27,40 @@ import TitleBar from '@/components/editor/TitleBar.jsx';
  *     传给 `useUnsavedGuard`；composable 在 onMounted 注册
  *     beforeunload + router.beforeEach 拦截，卸载时由其内部 onBeforeUnmount 兜底。
  *
+ * M5 接入：
+ *   - 通过 `inject(THEME_INJECTION_KEY)` 拿到 `App.jsx` 提供的 effectiveTheme ref，
+ *     传给 `<VditorEditor theme={...} />`，由其内部 `watch(theme)` 触发
+ *     `vditor.setTheme('classic' | 'dark')`
+ *   - Naive UI 主题已在 App 根 `NConfigProvider` 中绑定；本组件不重复包裹
+ *
  * 渲染：
  *   <TitleBar />
- *   <VditorEditor value={editorStore.content} theme={...} onUpdate:value={setContent} />
+ *   <VditorEditor value={editorStore.content} theme={effectiveTheme} onUpdate:value={setContent} />
  *
  * 不在当前里程碑范围：
  *   - useExternalWatcher → M7
- *   - 主题切换（目前固定 'light'，M5 useTheme 接管 settingsStore.theme）
- *   - SettingsDrawer / 另存为按钮 → M5 / M6
+ *   - 另存为按钮 → M6
  */
 export default defineComponent({
   name: 'EditorView',
   setup() {
     const route = useRoute();
     const editorStore = useEditorStore();
-    const settingsStore = useSettingsStore();
     const message = useMessage();
+
+    /**
+     * M5：从 App.jsx 注入 effectiveTheme ref（'light' | 'dark'）。
+     * App 层 `useTheme()` 已经维护了 system 监听器，本组件只是消费者。
+     * `inject()` 默认值用 `ref('light')` 兜底，避免 App 漏 provide 时崩溃。
+     */
+    const effectiveTheme = inject(THEME_INJECTION_KEY, /** @type {any} */ (ref('light')));
+
+    /**
+     * M5 主题层修复：取 Naive UI 当前主题的常用颜色变量，绑定到 `.editor-view` /
+     * `.editor-view__body` 等非 Naive UI 组件的 inline style 上。
+     * 详见 `src/composables/useThemeStyles.js` 的说明。
+     */
+    const themeStyles = useThemeStyles();
 
     /**
      * 监听 `route.query.mode` 变化，统一处理「首次挂载」与「同路由 query 变更」两种入口。
@@ -114,11 +133,6 @@ export default defineComponent({
       console.debug('[EditorView] unmounted');
     });
 
-    /**
-     * vditor 主题：当前固定 light（M5 由 useTheme 接管 `settingsStore.theme === 'dark'` 分支）。
-     */
-    const vditorTheme = 'light';
-
     return () => {
       const mode = route.query.mode === 'open' ? 'open' : 'new';
       return (
@@ -128,7 +142,10 @@ export default defineComponent({
             display: 'flex',
             flexDirection: 'column',
             height: '100vh',
-            background: 'var(--n-color, #ffffff)',
+            // M5 主题层修复：Naive UI 的 --n-color 不是全局 CSS 变量（仅在
+            // 每个组件的 hash 类作用域内生效），这里必须读 themeStyles.bodyColor
+            // 以保证暗模式下 `.editor-view` 背景随之翻深。
+            background: themeStyles.bodyColor.value,
           }}
         >
           <TitleBar />
@@ -138,7 +155,8 @@ export default defineComponent({
               flex: 1,
               minHeight: 0,
               overflow: 'auto',
-              padding: '0 16px 16px',
+              // 不设 padding：让 vditor 自带 toolbar 边缘与 TitleBar / 窗口边缘对齐，
+              // 去除内外不必要留白。
             }}
           >
             {mode === 'open' && !editorStore.hasFileHandle ? (
@@ -148,23 +166,12 @@ export default defineComponent({
             ) : (
               <VditorEditor
                 value={editorStore.content}
-                theme={vditorTheme}
+                theme={effectiveTheme.value}
                 readonly={editorStore.externalState === 'orphaned'}
                 onUpdate:value={(val) => editorStore.setContent(val)}
                 onError={handleVditorError}
               />
             )}
-          </div>
-          {/* 调试参考：当前主题设置（用于 M5 接入前肉眼确认） */}
-          <div
-            style={{
-              padding: '4px 16px',
-              fontSize: '12px',
-              color: 'var(--n-text-color-3, #888)',
-              borderTop: '1px solid var(--n-border-color, #e6e6e6)',
-            }}
-          >
-            settings.theme = {settingsStore.theme}（M5 接入 vditor 主题联动）
           </div>
         </div>
       );

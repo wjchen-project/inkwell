@@ -7,6 +7,16 @@ import {
   NSpace,
   NTooltip,
   NModal,
+  // M5：SettingsDrawer 用到
+  NDrawer,
+  NDrawerContent,
+  NRadio,
+  NRadioGroup,
+  NSwitch,
+  NSlider,
+  NDivider,
+  NH3,
+  NText,
   create,
 } from 'naive-ui';
 
@@ -29,6 +39,16 @@ const naive = create({
     NSpace,
     NTooltip,
     NModal,
+    // M5：SettingsDrawer + 主题 / 自动保存 / 外部修改检测 区块
+    NDrawer,
+    NDrawerContent,
+    NRadio,
+    NRadioGroup,
+    NSwitch,
+    NSlider,
+    NDivider,
+    NH3,
+    NText,
   ],
 });
 

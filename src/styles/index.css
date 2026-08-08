@@ -2,12 +2,13 @@
  * 全局样式入口。
  *
  * - 当前阶段声明最小重置；
- * - vditor 主题覆盖将在 M5 引入 `vditor-overrides.css` 并补充于此；
- * - Naive UI 主题切换通过 `NConfigProvider` 注入 CSS 变量，
- *   不在此处写死主题色。
- *
- * M2 引入 vditor 默认样式（M2 §3.5），便于编辑器呈现原生外观；
- * 主题色冲突 / 细节调整留待 M5。
+ * - M2 引入 vditor 默认样式（M2 §3.5），便于编辑器呈现原生外观。
+ * - M5 主题联动用 vditor 官方 `Vditor.setContentTheme` API（详见
+ *   `src/components/editor/VditorEditor.jsx`），不再手写主题覆盖 CSS。
+ * - Naive UI 主题切换通过 `NConfigProvider` + `<NGlobalStyle>` 写入 body 内联样式
+ *   + `useThemeStyles()` 绑定到各组件 inline style。`--n-color` / `--n-text-color`
+ *   等不是 Naive UI 的全局 CSS 变量（仅在每个组件 hash 类作用域内生效），这里
+ *   不再使用 var(--n-*) 兜底，避免暗模式仍以 fallback 颜色渲染。
  */
 
 @import 'vditor/dist/index.css';
@@ -24,8 +25,7 @@ body,
     'Segoe UI',
     Roboto,
     sans-serif;
-  background: var(--n-color, #ffffff);
-  color: var(--n-text-color, #333333);
+  /* body 背景 / 文字由 <NGlobalStyle> 设置；html / #app 透传 body 的内联样式。 */
 }
 
 * {

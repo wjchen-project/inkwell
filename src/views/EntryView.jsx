@@ -3,6 +3,7 @@ import { useRouter } from 'vue-router';
 import { NSpace, NButton, useMessage } from 'naive-ui';
 import { useEditorStore } from '@/stores/useEditorStore';
 import { useFileSystem } from '@/composables/useFileSystem';
+import { useThemeStyles } from '@/composables/useThemeStyles';
 import { hasFSAPI } from '@/utils/browser';
 
 /**
@@ -28,6 +29,13 @@ export default defineComponent({
     const editorStore = useEditorStore();
     const fileSystem = useFileSystem();
     const opening = ref(false);
+
+    /**
+     * M5 主题层修复：副标题「选择开始方式」以前写死 `var(--n-text-color-3, #888)`，
+     * Naive UI 的 --n-text-color-3 不是全局 CSS 变量，暗模式下仍是 #888。
+     * 改为读 themeStyles.textColor3（暗模式下为更亮的辅助文字色），保证跟随主题。
+     */
+    const themeStyles = useThemeStyles();
 
     function handleNew() {
       router.push({ path: '/editor', query: { mode: 'new' } });
@@ -68,7 +76,7 @@ export default defineComponent({
       >
         <NSpace vertical align="center" size="large">
           <h1 style={{ margin: 0 }}>md-editor-web</h1>
-          <p style={{ margin: 0, color: 'var(--n-text-color-3, #888)' }}>选择开始方式</p>
+          <p style={{ margin: 0, color: themeStyles.textColor3.value }}>选择开始方式</p>
           <NSpace>
             <NButton type="primary" size="large" onClick={handleNew}>
               新建

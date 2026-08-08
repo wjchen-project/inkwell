@@ -2,9 +2,11 @@ import { defineComponent, ref, computed } from 'vue';
 import { NSpace, NButton, NTag, useMessage } from 'naive-ui';
 import { useEditorStore } from '@/stores/useEditorStore';
 import { useFileSystem } from '@/composables/useFileSystem';
+import { useThemeStyles } from '@/composables/useThemeStyles';
+import SettingsDrawer from '@/components/editor/SettingsDrawer.jsx';
 
 /**
- * 编辑器顶部标题栏 —— 设计文档 §5.2 / M2 + M3。
+ * 编辑器顶部标题栏 —— 设计文档 §5.2 / M2 + M3 + M5。
  *
  * M2 已就位：
  *   - 文件名（dirty 时由 store.displayName 附加 `●` 文本兜底，但 UI 主指示
@@ -16,9 +18,14 @@ import { useFileSystem } from '@/composables/useFileSystem';
  *   - 「未保存」圆点：v-if `dirty`，使用 Naive UI primary 主题色（§9 #8），
  *     `aria-label="未保存"`（§8 可访问性）
  *
+ * M5 新增：
+ *   - 「设置」按钮：点击打开 `SettingsDrawer`，右侧 Drawer 滑出（placement="right"，
+ *     width=360，参见 SettingsDrawer.jsx 与设计文档 §5.3）
+ *   - SettingsDrawer 状态（`show`）由 TitleBar 本地维护，不入 store；
+ *     「设置 UI 状态」不属于跨组件共享数据，无需放进 Pinia
+ *
  * 不在本里程碑范围：
  *   - 外部状态徽标（pending / orphaned）→ M7 / M8
- *   - 「设置」按钮 → M5
  *   - 另存为按钮 → M6
  *   - 「自动保存中」loading 指示 → 当前由 vditor 内置指示 + store.dirty 协同
  */
@@ -29,6 +36,14 @@ export default defineComponent({
     const fileSystem = useFileSystem();
     const message = useMessage();
     const saving = ref(false);
+    const showSettings = ref(false);
+
+    /**
+     * M5 主题层修复：拿到 Naive UI 当前主题的颜色变量，绑定到
+     * `.editor-title-bar` 的 background / borderBottom。
+     * 详见 `src/composables/useThemeStyles.js`。
+     */
+    const themeStyles = useThemeStyles();
 
     /**
      * 「保存」按钮的可用条件：有句柄 + 已有未保存变更 + 当前不在保存中。
@@ -69,8 +84,11 @@ export default defineComponent({
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: '8px 16px',
-          borderBottom: '1px solid var(--n-border-color, #e6e6e6)',
-          background: 'var(--n-color-embedded, #fafafa)',
+          // M5 主题层修复：同 EditorView 的 `--n-color` 问题——
+          // Naive UI CSS 变量仅在每个组件 hash 类作用域内生效，
+          // 这里改为读 themeStyles.cardColor / borderColor 并内联绑定。
+          borderBottom: `1px solid ${themeStyles.borderColor.value}`,
+          background: themeStyles.cardColor.value,
         }}
       >
         <NSpace align="center" size="small">
@@ -114,10 +132,29 @@ export default defineComponent({
               新建文档（首次保存将弹出对话框）
             </NTag>
           )}
+          {/* M5：设置按钮 + SettingsDrawer（状态本地维护） */}
+          <NButton
+            size="small"
+            quaternary
+            onClick={() => {
+              showSettings.value = true;
+            }}
+            aria-label="打开设置"
+          >
+            设置
+          </NButton>
           <NButton size="small" quaternary onClick={() => history.back()}>
             返回
           </NButton>
         </NSpace>
+        <SettingsDrawer
+          show={showSettings.value}
+          {...{
+            'onUpdate:show': (v) => {
+              showSettings.value = v;
+            },
+          }}
+        />
       </div>
     );
   },

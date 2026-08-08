@@ -12,10 +12,16 @@ import Vditor from 'vditor';
  * Emits：
  *   - update:value  vditor input 事件
  *   - ready         vditor 实例就绪（after 回调触发）
+ *   - error         初始化失败
  *
  * 关键设计：
  *   - `value` 同步靠 `vditor.getValue()` 与新值比较，避免回环（无需 isInternalUpdate 标志）
- *   - `theme` 切换通过 `vditor.setTheme()` 完成，无需销毁重建
+ *   - `theme` 切换靠 `vditor.setTheme(uiTheme, contentTheme, codeTheme?, contentPath?)` 一条 API 完成：
+ *       · `uiTheme`     UI 主题（工具栏 / 输入框背景，CSS 变量翻转）
+ *       · `contentTheme` 内容主题（`.vditor-reset` 文字 / 块引用 / 表格 / kbd / linkcard 等
+ *                       硬编码颜色，由 vditor 官方 `content-theme/*.css` 提供）
+ *     两个参数必须**同时**传，否则会出现「背景变深但文字仍是深色」的对比度问题（M5 验收）。
+ *     初始创建时则靠 `preview.theme.current` 选项让 vditor initUI 预调一次，免首次闪烁。
  *   - `readonly` 切换通过 `vditor.disabled()` 双向切换（M2 用不到，但接口就位）
  *   - `onBeforeUnmount` 必须调 `vditor.destroy()`，否则 vditor 内部的 DOM / 事件会泄漏
  *
@@ -40,10 +46,31 @@ export default defineComponent({
     const initFailed = ref(false);
 
     /**
-     * 把组件层 `theme` 映射到 vditor 的内部枚举。
+     * 把组件层 `theme` 映射到 vditor 的 UI 主题枚举。
+     * `'light' → 'classic'`、`'dark' → 'dark'`。
      */
     function toVditorTheme(theme) {
       return theme === 'dark' ? 'dark' : 'classic';
+    }
+
+    /**
+     * 把组件层 `theme` 映射到 vditor 的内容主题枚举。
+     * 当前只取 `'light' | 'dark'`；其它可选 `'ant-design' | 'wechat'` 但与
+     * `theme` 切换语义无关，保留扩展位（M9 体验打磨再议）。
+     */
+    function toVditorContentTheme(theme) {
+      return theme === 'dark' ? 'dark' : 'light';
+    }
+
+    /**
+     * 构造 vditor 内容主题 CSS 所在的 CDN 路径。
+     * 用 `vditor.version` 拼装，避免与 `package.json` 里 vditor 版本硬编码漂移。
+     *
+     * vditor 默认 `cdn` 即 `https://unpkg.com/vditor@${version}`（见
+     * `node_modules/vditor/src/ts/constants.ts` `Constants.CDN`），与下方构造一致。
+     */
+    function getContentThemePath(version) {
+      return `https://unpkg.com/vditor@${version}/dist/css/content-theme`;
     }
 
     /**
@@ -55,6 +82,14 @@ export default defineComponent({
         const vditor = new Vditor(elRef.value, {
           mode: 'wysiwyg',
           theme: toVditorTheme(props.theme),
+          // 让 vditor 实例撑满父容器（`.vditor-editor-container`）。
+          // vditor 默认 `height: 'auto'` → `.vditor` 元素高度 = toolbar + 内容自然高度，
+          // 不填剩余空间，导致 `.vditor-content`（flex: 1）只到 `min-height: 60px` 就不再长。
+          // 传 '100%' 后，vditor.initUI 会设 `vditor.element.style.height = '100%'`，
+          // 从而让 `.vditor-content`（`flex: 1`） / `.vditor-wysiwyg`（`flex: 1`）一并撑满。
+          // width 同样默认 'auto' → 设为 '100%' 以与容器对齐。
+          height: '100%',
+          width: '100%',
           // vditor 默认 `cache.enable = true`，而 3.11.x 在合并选项后会校验
           // `cache.id` —— 若不提供会抛 `need options.cache.id`。
           // M2 不做自动保存，且该缓存是「keypress → localStorage」级别的简单兑底，
@@ -69,6 +104,15 @@ export default defineComponent({
           // optional-chaining 守卫。未注入时就会报 `is not a function`。
           // 本项目暂不扩展浮动工具栏，提供空函数兑底，避免控制台报错。
           customWysiwygToolbar: () => {},
+          // M5：初始内容主题与 `theme` prop 对齐。vditor 内部 initUI 会在创建后
+          // 调用 `setContentTheme(preview.theme.current, preview.theme.path)`，
+          // 因此传 `current` 就够了；`path` 不传，vditor 默认用 `${cdn}/dist/css/content-theme`
+          // （与 `getContentThemePath(vditor.version)` 一致）。
+          preview: {
+            theme: {
+              current: toVditorContentTheme(props.theme),
+            },
+          },
           after: () => {
             // setValue 不应触发 input 回调（仅用户操作会触发），所以不会形成回环
             vditor.setValue(props.value || '', true);
@@ -124,14 +168,24 @@ export default defineComponent({
       },
     );
 
-    // 主题变化 → 调用 vditor.setTheme()（无需重建实例）
+    // 主题变化 → vditor.setTheme 一条 API 同时切 UI 主题 + 内容主题
+    //   - `theme`           UI 主题（工具栏 / 输入框背景，CSS 变量翻转）
+    //   - `contentTheme`    内容主题（.vditor-reset 文字 / blockquote / table / kbd
+    //                       等硬编码颜色，由 vditor 官方 content-theme/*.css 提供）
+    // 两者必须同时切换，否则暗模式下会出现「背景变深但文字仍为深色」的对比度
+    // 归零 bug（M5 §4.2 联动验收要求）。
     watch(
       () => props.theme,
       (next) => {
         const vditor = vditorRef.value;
         if (!vditor) return;
         try {
-          vditor.setTheme(toVditorTheme(next));
+          vditor.setTheme(
+            toVditorTheme(next),
+            toVditorContentTheme(next),
+            undefined,
+            getContentThemePath(vditor.version),
+          );
         } catch (err) {
           console.warn('[VditorEditor] setTheme failed:', err);
         }
