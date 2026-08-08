@@ -160,7 +160,7 @@ function waitUntil(predicate, timeout) {
 ### 4.2 边界场景
 
 - [ ] `isSaving=true` 且 `dirty=false`（保存刚成功）→ 放行（无需拦截）
-- [ ] `isSaving=true` 且 `dirty=true`（保存失败）→ 拦截，等待超时后放行（避免卡死）
+- [ ] `isSaving=true` 且 `dirty=true`（保存失败）→ 拦截，等待保存完成（最长 10s 超时避免卡死）；超时后再判断 dirty，仍 dirty 则弹 confirm 让用户决定（保守策略：用户保留「挽救」机会，不会被静默丢弃）
 - [ ] `isDirtyRef` 在异步等待期间变为 false（保存成功）→ 放行
 - [ ] 多个 tab 同时存在 → 各 tab 独立拦截（不同 store 实例）
 
