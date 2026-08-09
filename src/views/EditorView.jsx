@@ -2,6 +2,7 @@ import { defineComponent, watch, onBeforeUnmount, onMounted, toRef, inject, ref 
 import { useRoute, useRouter } from 'vue-router';
 import { NAlert, useMessage } from 'naive-ui';
 import { useEditorStore } from '@/stores/useEditorStore';
+import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useAutoSave } from '@/composables/useAutoSave';
 import { useUnsavedGuard } from '@/composables/useUnsavedGuard';
 import { useSaveAs } from '@/composables/useSaveAs';
@@ -52,9 +53,18 @@ import ExternalChangeDialog from '@/components/editor/ExternalChangeDialog.jsx';
  *   - vditor 不需要 prop 联动：watcher reload 时调 `editorStore.markSaved({content})`，
  *     VditorEditor 自身的 `watch(value)` 自动调 `vditor.setValue(newContent, true)`
  *
+ * M9 收尾（大纲显隐）：
+ *   - 从 `useSettingsStore` 读 `outlineEnabled`，作为 prop 透传 `<VditorEditor />`；
+ *     设置面板切换 → store 更新 → 本组件 re-render → 传到 vditor 实例，由其
+ *     `watch(outlineEnabled)` 调 `vditor.outline.toggle()` 完成显示 / 收起。
+ *   - vditor 工具栏中已不再有「大纲」按钮（VditorEditor toolbar 配置移除 `outline`），
+ *     这里作为唯一控制入口，避免双入口状态不同步。
+ *
  * 渲染：
  *   <TitleBar />
- *   <VditorEditor value={editorStore.content} theme={effectiveTheme} onUpdate:value={setContent} />
+ *   <VditorEditor value={editorStore.content} theme={effectiveTheme}
+ *     outlineEnabled={settingsStore.outlineEnabled}
+ *     onUpdate:value={setContent} />
  *   <ExternalChangeDialog show={...} onResolve={...} />
  *
  * 不在当前里程碑范围：
@@ -66,6 +76,7 @@ export default defineComponent({
     const route = useRoute();
     const router = useRouter();
     const editorStore = useEditorStore();
+    const settingsStore = useSettingsStore();
     const message = useMessage();
 
     /**
@@ -278,6 +289,7 @@ export default defineComponent({
                 value={editorStore.content}
                 theme={effectiveTheme.value}
                 readonly={editorStore.externalState === 'orphaned'}
+                outlineEnabled={settingsStore.outlineEnabled}
                 onUpdate:value={(val) => editorStore.setContent(val)}
                 onError={handleVditorError}
               />

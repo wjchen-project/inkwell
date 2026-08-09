@@ -22,6 +22,9 @@ const ALLOWED_THEMES = /** @type {const} */ (['light', 'dark', 'auto']);
 
 /**
  * 默认设置。所有字段在 schema 校验失败时回退到本对象。
+ *
+ * `outlineEnabled` 默认 `false`：与 vditor 的 `outline.enable` 默认值对齐，
+ * 避免老用户升级看到突然多出来的大纲面板。
  */
 export const DEFAULT_SETTINGS = Object.freeze({
   theme: 'light',
@@ -29,6 +32,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   autoSaveInterval: 5,
   externalWatchEnabled: true,
   externalWatchInterval: 10,
+  outlineEnabled: false,
 });
 
 /**
@@ -98,6 +102,15 @@ export function validateSettings(raw) {
     }
   }
 
+  // outlineEnabled：必须为 boolean
+  if (Object.prototype.hasOwnProperty.call(raw, 'outlineEnabled')) {
+    if (typeof raw.outlineEnabled === 'boolean') {
+      value.outlineEnabled = raw.outlineEnabled;
+    } else {
+      warnings.push(`invalid outlineEnabled "${String(raw.outlineEnabled)}", fallback to false`);
+    }
+  }
+
   return { value, usedDefault: false, warnings };
 }
 
@@ -108,6 +121,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const autoSaveInterval = ref(DEFAULT_SETTINGS.autoSaveInterval);
   const externalWatchEnabled = ref(DEFAULT_SETTINGS.externalWatchEnabled);
   const externalWatchInterval = ref(DEFAULT_SETTINGS.externalWatchInterval);
+  const outlineEnabled = ref(DEFAULT_SETTINGS.outlineEnabled);
 
   // 防抖写入器（实例级；installPersistence 时绑定）
   const persist = debounce((snapshot) => {
@@ -133,6 +147,7 @@ export const useSettingsStore = defineStore('settings', () => {
           autoSaveInterval: state.autoSaveInterval,
           externalWatchEnabled: state.externalWatchEnabled,
           externalWatchInterval: state.externalWatchInterval,
+          outlineEnabled: state.outlineEnabled,
         };
         persist(snapshot);
       },
@@ -147,6 +162,7 @@ export const useSettingsStore = defineStore('settings', () => {
     autoSaveInterval,
     externalWatchEnabled,
     externalWatchInterval,
+    outlineEnabled,
     // actions
     installPersistence,
   };

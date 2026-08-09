@@ -15,7 +15,7 @@ import { useSettingsStore } from '@/stores/useSettingsStore';
 import packageJson from '../../../package.json';
 
 /**
- * 设置抽屉 —— 设计文档 §5.3 / M5 §3.3。
+ * 设置抽屉 —— 设计文档 §5.3 / M5 §3.3 + M9 收尾。
  *
  * Props / Emits：
  *   - `show: boolean`            控制显隐（v-model:show）
@@ -26,9 +26,14 @@ import packageJson from '../../../package.json';
  *   - 持久化由 `useSettingsStore.installPersistence()` 在 `main.js` 中注册的
  *     `$subscribe` + 300ms 防抖完成；本组件不直接操作 localStorage
  *
- * 布局（设计文档 §3.3）：
+ * 布局（设计文档 §3.3 + M9 收尾）：
  *   - 右侧 Drawer，宽 360px
- *   - 4 节：主题 / 自动保存 / 外部修改检测 / 关于
+ *   - 节（自上而下）：
+ *       1. 主题
+ *       2. 大纲（M9 收尾：把 vditor toolbar 中的 `outline` 按钮移除后，迁移到此）
+ *       3. 自动保存
+ *       4. 外部修改检测
+ *       5. 关于
  *   - 数值类控件（Slider）在开关关闭时禁用
  *
  * 关于区（M5 §4.1）：
@@ -75,6 +80,28 @@ export default defineComponent({
                   <NRadio value="auto">跟随系统</NRadio>
                 </NSpace>
               </NRadioGroup>
+            </section>
+
+            <NDivider style={{ margin: 0 }} />
+
+            {/* ───────── 大纲（M9 收尾）─────────
+                vditor 工具栏中的 `more > outline` 按钮已移除（M9 收尾：
+                从 `src/components/editor/VditorEditor.jsx` toolbar 配置去掉）。
+                大纲显隐改由本开关控制：开关 → `settingsStore.outlineEnabled` →
+                `EditorView` 透传 `outlineEnabled` prop → VditorEditor 调用
+                `vditor.outline.toggle(vditor, next)` 完成切换。持久化复用
+                M1 已就位的 `useSettingsStore.installPersistence()`。 */}
+            <section>
+              <NH3 style={{ margin: '0 0 12px' }}>大纲</NH3>
+              <NSpace align="center" justify="space-between" style={{ width: '100%' }}>
+                <NText>显示文档大纲</NText>
+                <NSwitch
+                  value={settingsStore.outlineEnabled}
+                  onUpdateValue={(v) => {
+                    settingsStore.outlineEnabled = v;
+                  }}
+                />
+              </NSpace>
             </section>
 
             <NDivider style={{ margin: 0 }} />

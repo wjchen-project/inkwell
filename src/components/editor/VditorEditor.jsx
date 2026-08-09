@@ -8,6 +8,7 @@ import Vditor from 'vditor';
  *   - value     初始内容（同时作为外部变化的同步源）
  *   - theme     'light' | 'dark'，映射到 vditor 的 'classic' / 'dark'
  *   - readonly  只读模式（M8 用于 orphaned 状态；M2 默认 false）
+ *   - outlineEnabled  是否显示 vditor 大纲面板（默认 false；M9 子项，由设置面板控制）
  *
  * Emits：
  *   - update:value  vditor input 事件
@@ -23,6 +24,24 @@ import Vditor from 'vditor';
  *     两个参数必须**同时**传，否则会出现「背景变深但文字仍是深色」的对比度问题（M5 验收）。
  *     初始创建时则靠 `preview.theme.current` 选项让 vditor initUI 预调一次，免首次闪烁。
  *   - `readonly` 切换通过 `vditor.disabled()` 双向切换（M2 用不到，但接口就位）
+ *   - `outlineEnabled`：
+ *       · 初始显隐由 vditor 自己处理：`initUI` 内部 `setEditMode(vditor, options.mode, ...)`
+ *         末尾会按 `vditor.options.outline.enable` 调一次 `vditor.outline.toggle(...)`
+ *         （见 `node_modules/vditor/src/ts/toolbar/EditMode.ts:150`）。所以只要在
+ *         init 选项里把 `outline: { enable: props.outlineEnabled, position: 'left' }`
+ *         传对，初次挂载即落到期望状态——**不需要**在 `after` 里再手动 toggle。
+ *       · 后续 prop 变化由 `watch` 监听；`outline.toggle` 仅设置 `display` 并重新
+ *         渲染大纲 DOM，对已 mount 的 vditor 实例安全。
+ *       · vditor toolbar 中已经移除 `'outline'` 按钮（设置抽屉接管），但
+ *         `outline.toggle()` 中 `vditor.toolbar.elements.outline?.firstElementChild` 用
+ *         optional-chaining 守卫，移除后该引用为 `undefined`，安全 no-op
+ *         （见 `node_modules/vditor/src/ts/outline/index.ts:28`）。
+ *       · `vditor.outline` / `vditor.toolbar` / `vditor.lute` 等挂在 Vditor **类实例**
+ *         的 `vditor.vditor`（内部 IVditor 对象）上。Vditor 类自己仅有 `setValue` /
+ *         `disabled` / `getValue` 等便捷方法（见 `node_modules/vditor/dist/index.d.ts`）。
+ *         因此 watch 回调里调 `outline.toggle` 时必须先拿 `vditor.vditor`，并把它作为
+ *         第一个参数传回去（vditor 内部会读 `vditor.toolbar.elements` / `vditor.currentMode`）。
+ *         `focus=false` 避免抢光标。
  *   - `onBeforeUnmount` 必须调 `vditor.destroy()`，否则 vditor 内部的 DOM / 事件会泄漏
  *
  * 注：vditor 不在 `src/plugins/` 中注册（它是编辑器核心而非 UI 组件库），
@@ -38,6 +57,7 @@ export default defineComponent({
       validator: (v) => v === 'light' || v === 'dark',
     },
     readonly: { type: Boolean, default: false },
+    outlineEnabled: { type: Boolean, default: false },
   },
   emits: ['update:value', 'ready', 'error'],
   setup(props, { emit }) {
@@ -99,8 +119,9 @@ export default defineComponent({
           // 显式精简 vditor 默认工具栏：移除上传、录音、内容主题预览、导出、
           // 开发者工具、关于、帮助。其它按钮保留以贴合常见 Markdown 编辑器体验。
           // 「more」子菜单仅保留：both（双栏 / 单栏切换）、code-theme（代码块主题）、
-          // outline（大纲）、preview（即时预览）。Phase 2 §4.2 原决议使用默认全量，
-          // 此处按用户体验反馈裁剪，仍属「全量基础上显式 exclude」风格而非全自定义。
+          // preview（即时预览）。`outline`（大纲）按钮已被设置抽屉接管，故不再放入
+          // 工具栏，避免与 SettingsDrawer 产生双入口导致状态不同步。
+          // 按钮名以 `node_modules/vditor/dist/index.js:14580` 默认数组为准。
           toolbar: [
             'emoji',
             'headings',
@@ -131,7 +152,7 @@ export default defineComponent({
             'edit-mode',
             {
               name: 'more',
-              toolbar: ['both', 'code-theme', 'outline', 'preview'],
+              toolbar: ['both', 'code-theme', 'preview'],
             },
           ],
           // vditor 3.11.x 的 highlightToolbarWYSIWYG() 会在用户选中表格 / 代码块 /
@@ -149,6 +170,16 @@ export default defineComponent({
             theme: {
               current: toVditorContentTheme(props.theme),
             },
+          },
+          // vditor 默认 `outline: { enable: false, position: 'left' }`，工具栏
+          // Outline 按钮点击时会同步切 `options.outline.enable` 与 `outline.toggle()`。
+          // 本项目已把工具栏按钮移除（见上方 toolbar 注释），大纲由设置面板控制：
+          // 这里把 `enable` 直接绑到 prop。`initUI` 内部 `setEditMode` 末尾会按
+          // `options.outline.enable` 调一次 `outline.toggle()`（见 `toolbar/EditMode.ts:150`），
+          // 因此**初次挂载**的显隐状态由 vditor 自己 here，只需要保证 options 正确即可。
+          outline: {
+            enable: props.outlineEnabled,
+            position: 'left',
           },
           after: () => {
             // setValue 不应触发 input 回调（仅用户操作会触发），所以不会形成回环
@@ -243,6 +274,29 @@ export default defineComponent({
           }
         } catch (err) {
           console.warn('[VditorEditor] readonly toggle failed:', err);
+        }
+      },
+    );
+
+    // 大纲显隐联动（设置面板控制）：
+    //   - 同时同步 `vditor.options.outline.enable`，保证 vditor 内部状态与 UI 一致
+    //     （即便后续会被 Mode 切换 / 浏览器内的 Outline 按钮调用读到这个值）
+    //   - `outline.toggle(vditor, show, focus=false)`：focus=true 会在编辑器失焦时
+    //     重新 focus 光标，初次挂载我们传 false 避免抢光标；后续切换传 false 即可，
+    //     让用户的编辑焦点不被大纲操作打断
+    //   - `outline` 挂在 Vditor 实例的 `vditor.vditor` 上，调 `toggle` 时需穿透。
+    watch(
+      () => props.outlineEnabled,
+      (next) => {
+        const vditor = vditorRef.value;
+        if (!vditor || !vditor.vditor || !vditor.vditor.outline) return;
+        try {
+          if (vditor.vditor.options.outline) {
+            vditor.vditor.options.outline.enable = next;
+          }
+          vditor.vditor.outline.toggle(vditor.vditor, next, false);
+        } catch (err) {
+          console.warn('[VditorEditor] outline toggle failed:', err);
         }
       },
     );
