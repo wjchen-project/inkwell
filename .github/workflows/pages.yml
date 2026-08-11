@@ -1,9 +1,10 @@
 name: Deploy to GitHub Pages
 
 on:
-  # 默认分支推送时自动部署
+  # 推送 v* 形式的 tag 时自动部署（如 v1.0.0、v1.2.3-rc1）
   push:
-    branches: ["master"]
+    tags:
+      - 'v*'
   # 支持 Actions 页面手动触发
   workflow_dispatch:
 
