@@ -77,7 +77,7 @@ export default defineComponent({
           <NCard hoverable style={{ width: '420px' }} content-style={{ padding: '36px 16px' }}>
             <NSpace vertical size="large">
               <div style={{ textAlign: 'center' }}>
-                <img src="/favicon.svg" alt="" width="72" height="72" />
+                <img src="./favicon.svg" alt="" width="72" height="72" />
               </div>
               <h1
                 style={{
