@@ -11,13 +11,13 @@ const routes = [
     path: '/',
     name: 'entry',
     component: () => import('@/views/EntryView.jsx'),
-    meta: { title: 'md-editor-web · 入口' },
+    meta: { title: 'inkwell · 入口' },
   },
   {
     path: '/editor',
     name: 'editor',
     component: () => import('@/views/EditorView.jsx'),
-    meta: { title: 'md-editor-web · 编辑器' },
+    meta: { title: 'inkwell · 编辑器' },
   },
   // 未匹配路径重定向到入口
   {

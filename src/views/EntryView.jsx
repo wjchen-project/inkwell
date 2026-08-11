@@ -1,10 +1,11 @@
-import { defineComponent, ref } from 'vue';
+import { defineComponent, ref, inject } from 'vue';
 import { useRouter } from 'vue-router';
-import { NSpace, NButton, useMessage } from 'naive-ui';
+import { NCard, NSpace, NButton, useMessage } from 'naive-ui';
 import { useEditorStore } from '@/stores/useEditorStore';
 import { useFileSystem } from '@/composables/useFileSystem';
 import { useThemeStyles } from '@/composables/useThemeStyles';
 import { hasFSAPI } from '@/utils/browser';
+import { THEME_INJECTION_KEY } from '@/composables/useTheme';
 
 /**
  * 入口页 —— 设计文档 §4 / M2 §3.4。
@@ -30,11 +31,7 @@ export default defineComponent({
     const fileSystem = useFileSystem();
     const opening = ref(false);
 
-    /**
-     * M5 主题层修复：副标题「选择开始方式」以前写死 `var(--n-text-color-3, #888)`，
-     * Naive UI 的 --n-text-color-3 不是全局 CSS 变量，暗模式下仍是 #888。
-     * 改为读 themeStyles.textColor3（暗模式下为更亮的辅助文字色），保证跟随主题。
-     */
+    const effectiveTheme = inject(THEME_INJECTION_KEY, ref('light'));
     const themeStyles = useThemeStyles();
 
     function handleNew() {
@@ -42,7 +39,6 @@ export default defineComponent({
     }
 
     async function handleOpen() {
-      // 显式再校验一次：BrowserGate 不阻断跳转，但打开操作必须可执行
       if (!hasFSAPI()) {
         message.error('当前浏览器不支持文件选择，请使用 Chrome / Edge');
         return;
@@ -50,7 +46,7 @@ export default defineComponent({
       opening.value = true;
       try {
         const result = await fileSystem.openFile();
-        if (!result) return; // 用户取消，no-op
+        if (!result) return;
         editorStore.loadFromFile({
           handle: result.handle,
           content: result.content,
@@ -58,35 +54,78 @@ export default defineComponent({
         });
         await router.push({ path: '/editor', query: { mode: 'open' } });
       } catch (err) {
-        // useFileSystem 已 toast；此处保留日志便于排错
         console.warn('[EntryView] open failed:', err);
       } finally {
         opening.value = false;
       }
     }
 
-    return () => (
-      <div
-        style={{
-          minHeight: '100vh',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <NSpace vertical align="center" size="large">
-          <h1 style={{ margin: 0 }}>md-editor-web</h1>
-          <p style={{ margin: 0, color: themeStyles.textColor3.value }}>选择开始方式</p>
-          <NSpace>
-            <NButton type="primary" size="large" onClick={handleNew}>
-              新建
-            </NButton>
-            <NButton size="large" loading={opening.value} onClick={handleOpen}>
-              打开…
-            </NButton>
-          </NSpace>
-        </NSpace>
-      </div>
-    );
+    return () => {
+      const pageBg = effectiveTheme.value === 'dark' ? '#18181c' : '#f0f0f0';
+      return (
+        <div
+          style={{
+            minHeight: '100vh',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+            background: pageBg,
+            transition: 'background 0.3s',
+          }}
+        >
+          <NCard hoverable style={{ width: '420px' }} content-style={{ padding: '36px 16px' }}>
+            <NSpace vertical size="large">
+              <div style={{ textAlign: 'center' }}>
+                <img src="/favicon.svg" alt="" width="72" height="72" />
+              </div>
+              <h1
+                style={{
+                  margin: 0,
+                  fontSize: '28px',
+                  fontWeight: 600,
+                  textAlign: 'center',
+                }}
+              >
+                inkwell
+              </h1>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: '14px',
+                  lineHeight: 1.6,
+                  textAlign: 'center',
+                  color: themeStyles.textColor3.value,
+                }}
+              >
+                简洁的 Web 端 Markdown 编辑器，支持本地文件读写
+              </p>
+              <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
+                <NSpace vertical size="medium" style={{ width: '80%' }}>
+                  <NButton
+                    type="primary"
+                    size="large"
+                    block
+                    onClick={handleNew}
+                    aria-label="新建文档"
+                  >
+                    新建
+                  </NButton>
+                  <NButton
+                    size="large"
+                    block
+                    loading={opening.value}
+                    onClick={handleOpen}
+                    aria-label="打开本地文件"
+                  >
+                    打开…
+                  </NButton>
+                </NSpace>
+              </div>
+            </NSpace>
+          </NCard>
+        </div>
+      );
+    };
   },
 });

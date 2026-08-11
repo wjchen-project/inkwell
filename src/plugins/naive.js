@@ -7,6 +7,8 @@ import {
   NSpace,
   NTooltip,
   NModal,
+  // 入口页卡片
+  NCard,
   // M5：SettingsDrawer 用到
   NDrawer,
   NDrawerContent,
@@ -39,6 +41,8 @@ const naive = create({
     NSpace,
     NTooltip,
     NModal,
+    // 入口页卡片
+    NCard,
     // M5：SettingsDrawer + 主题 / 自动保存 / 外部修改检测 区块
     NDrawer,
     NDrawerContent,

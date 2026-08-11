@@ -8,7 +8,7 @@
 
 | 项目     | 值                                                                          |
 | -------- | --------------------------------------------------------------------------- |
-| 名称     | `md-editor-web`                                                             |
+| 名称     | `inkwell`                                                             |
 | 形态     | 私有前端工程 (`private: true`)，非发布到 npm                                |
 | 包管理器 | npm（存在 `package-lock.json`，未启用其他 lockfile）                        |
 | 目标     | 从当前脚手架演进为**Web 端 Markdown 编辑器**（尚未实现，仅占位脚手架）       |
@@ -45,7 +45,7 @@
 ## 3. 目录结构
 
 ```
-md-editor-web/
+inkwell/
 ├── .editorconfig           # 2 空格 / LF / UTF-8 / max 100 字符
 ├── .gitattributes          # * text=auto eol=lf
 ├── .gitignore              # 含 dist / coverage / .eslintcache 等
@@ -195,7 +195,7 @@ md-editor-web/
 
 ## 6. 待补齐 / 路线图（持续更新）
 
-> 本节用于追踪与 `md-editor-web` 命名相符的核心功能落地。每完成一项请勾选并补充关联文件。
+> 本节用于追踪与 `inkwell` 命名相符的核心功能落地。每完成一项请勾选并补充关联文件。
 
 - [x] 集成 Naive UI（按需全局注册，封装于 `src/plugins/naive.js`）
 - [x] 基础设施（M1）：目录骨架 + Pinia stores（`useEditorStore` / `useSettingsStore`）+ `BrowserGate` + localStorage 持久化

@@ -41,7 +41,7 @@ import packageJson from '../../../package.json';
  *   - GitHub 链接：占位仓库地址（待 Phase 5 接入实际仓库后再回填）
  */
 
-const GITHUB_URL = 'https://github.com/earendil-works/md-editor-web';
+const GITHUB_URL = 'https://github.com/earendil-works/inkwell';
 const APP_VERSION = packageJson.version;
 
 export default defineComponent({
@@ -183,7 +183,7 @@ export default defineComponent({
             {/* ───────── 关于 ───────── */}
             <section>
               <NH3 style={{ margin: '0 0 12px' }}>关于</NH3>
-              <NText depth="3">md-editor-web v{APP_VERSION}</NText>
+              <NText depth="3">inkwell v{APP_VERSION}</NText>
               <div style={{ marginTop: '8px' }}>
                 <a
                   href={GITHUB_URL}

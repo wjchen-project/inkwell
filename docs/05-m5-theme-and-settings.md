@@ -100,7 +100,7 @@ sections:
      <span>{{ externalWatchInterval }} 秒</span>
 
   4. 关于（可选）
-     <p>md-editor-web v0.0.0</p>
+     <p>inkwell v0.0.0</p>
      <a href="...">GitHub</a>
 ```
 
