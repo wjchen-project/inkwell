@@ -41,7 +41,7 @@ import packageJson from '../../../package.json';
  *   - GitHub 链接：占位仓库地址（待 Phase 5 接入实际仓库后再回填）
  */
 
-const GITHUB_URL = 'https://github.com/earendil-works/inkwell';
+const GITHUB_URL = 'https://github.com/wjchen-project/inkwell';
 const APP_VERSION = packageJson.version;
 
 export default defineComponent({
