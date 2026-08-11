@@ -23,7 +23,7 @@
 ### 运行时依赖 (`dependencies`)
 
 - **Vue `^3.5.40`** —— Composition API，**JSX** 渲染函数（`@vitejs/plugin-vue-jsx`），不使用 `<template>` / `<script setup>`
-- **Vue Router `^5.2.0`** —— `createWebHistory(import.meta.env.BASE_URL)`
+- **Vue Router `^5.2.0`** —— `createWebHashHistory()`（hash 模式，URL 形如 `/#/editor`）
 - **Pinia `^4.0.2`** —— 状态管理（`useEditorStore` / `useSettingsStore`，详见 [§6](#6-待补齐--路线图持续更新)）
 - **Naive UI `^2.44.1`** —— UI 组件库，按需全局注册，详见 [§5.7](#57-第三方组件与-plugins-约定)；CSS-in-JS，无需单独引入样式文件
 - **vditor `^3.11.2`** —— Markdown 编辑器核心（M2 起接入）。**不在** `src/plugins/` 中注册（它不是 UI 组件库），由 `src/components/editor/VditorEditor.jsx` 直接 import；CSS 由 `src/styles/index.css` 顶部 `@import 'vditor/dist/index.css';` 引入
@@ -72,7 +72,7 @@ inkwell/
     ├── main.js             # createApp → Pinia → hydrateSettings → Router → Plugins → mount('#app')
     ├── App.jsx             # 根组件（BrowserGate > router-view）
     ├── router/
-    │   ├── index.js        # createWebHistory + 聚合 routes.js
+    │   ├── index.js        # createWebHashHistory + 聚合 routes.js
     │   └── routes.js       # 路由定义（`/` + `/editor`，M1 起懒加载）
     ├── plugins/            # 第三方组件/插件统一入口（见 §5.7）
     │   ├── index.js        #   - installPlugins(app)：遍历 `plugins` 数组
@@ -166,7 +166,7 @@ inkwell/
 
 ### 5.5 路由
 
-- `createWebHistory(import.meta.env.BASE_URL)`，部署到子路径时不要硬编码 base
+- `createWebHashHistory()` —— hash 模式部署到 GitHub Pages 等静态托管时深链不会 404，无需服务器端 rewrite 规则；URL 形如 `/#/editor`
 - 路由模块按 `src/router/*.js` 拆分，主入口 `index.js` 仅做 `routes` 聚合
 - 路由定义统一懒加载：`component: () => import('@/views/XxxView.jsx')`
 - 守卫（beforeEach）如需登录态校验，统一走 Pinia store，**不要**在组件内做路由跳转
@@ -279,7 +279,25 @@ npm run preview
 
 ---
 
-_最后更新：M9 收尾——大纲切换迁移至设置面板（修改 `src/stores/useSettingsStore.js`：新增 `outlineEnabled: false` 字段（默认与 vditor `outline.enable` 对齐，避免老用户升级看到突然多出来的大纲面板），补 `validateSettings` 的 boolean 校验与 `installPersistence` 的 snapshot 字段；修改 `src/components/editor/VditorEditor.jsx`：vditor 工具栏 `more` 子菜单移除 `'outline'`（M9 起步已声明），新增 `outlineEnabled: Boolean` prop——初始化时传 `outline: { enable, position: 'left' }`，`after` 回调里调 `vditor.outline.toggle(vditor, props.outlineEnabled, false)` 强制落到期望状态，prop 变化由 `watch` 同步切换并写回 `vditor.options.outline.enable`；修改 `src/components/editor/SettingsDrawer.jsx`：在「主题」与「自动保存」之间插入「大纲」section（`<NSwitch>` 绑 `settingsStore.outlineEnabled`），布局扩展为 5 节；修改 `src/views/EditorView.jsx`：引入 `useSettingsStore` 并把 `outlineEnabled` 透传给 `<VditorEditor>`。vditor toolbar 中移除 `'outline'` 后，`vditor.toolbar.elements.outline` 为 `undefined`，`outline.toggle()` 中 `vditor.toolbar.elements.outline?.firstElementChild` 通过 optional-chaining 守卫为安全 no-op（读 `node_modules/vditor/src/ts/outline/index.ts:28` 确认）。持久化复用 M1 已就位的 `useSettingsStore.installPersistence()`（`$subscribe` + 300ms 防抖 → `localStorage['md-editor-settings']`），不新增机制。无新增依赖；不动 useEditorStore / 路由 / 主题。验证：`npm run format` / `npm run lint` / `npm run build` 均通过。同步更新 `AGENTS.md` §6 路线图与本节「最后更新」。后续：M9 体验打磨剩余子项（vditor 工具栏集成「另存为 / 设置」自定义按钮、键盘可达性、视觉一致性等，详见 `docs/05-m9-polish.md`）。任意超出「占位脚手架」的功能实现都属于**较大更新**，请同步更新本文件。_
+_最后更新：路由改用 hash 模式（解决 GitHub Pages 子路径深链 404） + 一组发布配套更新。
+
+- **路由 hash 化**：修改 `src/router/index.js` —— `createWebHistory(import.meta.env.BASE_URL)` → `createWebHashHistory()`。URL 由 `/editor` 变为 `/#/editor`，深链刷新 / 直接访问不再 404（hash 永远与 `index.html` 同级，静态托管不需要 rewrite 规则）。`EntryView` / `EditorView` 中的 `router.push/replace({ path, query })` 写法无需改动，hash 模式自动加 `#` 前缀。同步更新 `AGENTS.md` §2 / §3 / §5.5。
+
+- **首页重构**（提交 `6f2cd9a`）：`EntryView.jsx` 改为 `<NCard>` 卡片布局（420px 宽、`content-style` 36/16 内边距、`hoverable`），标题上方新增 inkwell 主题 logo SVG（`/favicon.svg`，`<img width="72" height="72">`、外层包 `<div textAlign:center>` 居中），标题下新增描述「简洁的 Web 端 Markdown 编辑器，支持本地文件读写」（`font-size:14px` / `line-height:1.6` / `color:themeStyles.textColor3` 跟随主题），wrapper 加主题感知灰背景（亮色 `#f0f0f0` / 暗色 `#18181c`，0.3s 过渡），按钮外层包 `display:flex; justifyContent:center` 容器让内层 `NSpace`（`width:80%`）水平居中——按钮从「占满内容区」缩到 80%。`src/plugins/naive.js` 追加 `NCard`。
+
+- **项目改名**（同 `6f2cd9a`）：`md-editor-web` → `inkwell`（`package.json` / `index.html` title / `README.md` / `AGENTS.md` / `SettingsDrawer.jsx` GitHub URL / `routes.js` meta / `docs/*` 全部同步）。
+
+- **Logo & Favicon**（同 `6f2cd9a`）：`public/favicon.svg` 新建——墨水瓶主题（墨滴 + 颈口 + 圆角矩形主体，Naive UI 主色绿 `#36ad6a` → `#0c7a43` 渐变，viewBox 0 0 64 64，可缩到 16×16 favicon）；`public/favicon.ico` 删除；`index.html` 用 `<link rel="icon" type="image/svg+xml" href="/favicon.svg" />`。
+
+- **README 重写**（提交 `3a09f6b`）：从 Vite 默认模板改为项目专用文档——shields.io 徽标（Vue / Vite / Naive UI / vditor / Node / 私有标识）、特性 emoji 列表、技术栈表格、快速开始、使用指南（入口页 / 编辑器 / 快捷键 / 设置面板）、项目结构、浏览器兼容性、路线图引用、许可声明。
+
+- **SettingsDrawer 仓库地址**（同 `3a09f6b`）：`GITHUB_URL` 从占位 `earendil-works/inkwell` 改为实际仓库 `wjchen-project/inkwell`。
+
+- **CI：GitHub Pages 部署**（提交 `c966e66`）：`.github/workflows/pages.yml` 由模板的单段 `deploy` job 改造为 `build` + `deploy` 两段式。`build` job 跑 `actions/checkout@v4` → `actions/setup-node@v4`（`node-version: '22'`、`cache: 'npm'`）→ `npm ci` → `npm run build -- --base=/${{ github.event.repository.name }}/`（动态取仓库名适配 `https://<owner>.github.io/<repo>/` 项目页 URL）→ `actions/configure-pages@v5` → `actions/upload-pages-artifact@v3`（`path: ./dist`）；`deploy` job 仅 `actions/deploy-pages@v5` 消费产物。保留 `on.push.branches=master` / `workflow_dispatch` / `permissions` / `concurrency: pages, cancel-in-progress: false`。首次部署需在仓库 Settings → Pages → Source 选「GitHub Actions」。
+
+无新增依赖；不动 `useEditorStore` / `useSettingsStore` / 主题 / 自动保存 / 外部修改检测等核心逻辑。验证：`npm run format` / `npm run lint` / `npm run build` 全通过；`git log` 三个新提交（`6f2cd9a` / `3a09f6b` / `c966e66`）已推 `origin/master`。后续：M9 体验打磨剩余子项（vditor 工具栏集成「另存为 / 设置」自定义按钮、键盘可达性、视觉一致性等，详见 `docs/05-m9-polish.md`）。任意超出「占位脚手架」的功能实现都属于**较大更新**，请同步更新本文件。_
+
+_历史：M9 收尾——大纲切换迁移至设置面板（修改 `src/stores/useSettingsStore.js`：新增 `outlineEnabled: false` 字段（默认与 vditor `outline.enable` 对齐，避免老用户升级看到突然多出来的大纲面板），补 `validateSettings` 的 boolean 校验与 `installPersistence` 的 snapshot 字段；修改 `src/components/editor/VditorEditor.jsx`：vditor 工具栏 `more` 子菜单移除 `'outline'`（M9 起步已声明），新增 `outlineEnabled: Boolean` prop——初始化时传 `outline: { enable, position: 'left' }`，`after` 回调里调 `vditor.outline.toggle(vditor, props.outlineEnabled, false)` 强制落到期望状态，prop 变化由 `watch` 同步切换并写回 `vditor.options.outline.enable`；修改 `src/components/editor/SettingsDrawer.jsx`：在「主题」与「自动保存」之间插入「大纲」section（`<NSwitch>` 绑 `settingsStore.outlineEnabled`），布局扩展为 5 节；修改 `src/views/EditorView.jsx`：引入 `useSettingsStore` 并把 `outlineEnabled` 透传给 `<VditorEditor>`。vditor toolbar 中移除 `'outline'` 后，`vditor.toolbar.elements.outline` 为 `undefined`，`outline.toggle()` 中 `vditor.toolbar.elements.outline?.firstElementChild` 通过 optional-chaining 守卫为安全 no-op（读 `node_modules/vditor/src/ts/outline/index.ts:28` 确认）。持久化复用 M1 已就位的 `useSettingsStore.installPersistence()`（`$subscribe` + 300ms 防抖 → `localStorage['md-editor-settings']`），不新增机制。无新增依赖；不动 useEditorStore / 路由 / 主题。验证：`npm run format` / `npm run lint` / `npm run build` 均通过。同步更新 `AGENTS.md` §6 路线图与本节「最后更新」。后续：M9 体验打磨剩余子项（vditor 工具栏集成「另存为 / 设置」自定义按钮、键盘可达性、视觉一致性等，详见 `docs/05-m9-polish.md`）。任意超出「占位脚手架」的功能实现都属于**较大更新**，请同步更新本文件。_
 
 _历史：完成 M6 另存为（新增 `src/composables/useSaveAs.js`：包装 `useFileSystem.saveAsFile` + `editorStore.updateFileHandle` + `markSaved`，暴露 `handleSaveAs()` 与 `isSavingAs` ref；用户取消 `AbortError → null` 静默不报错，写入失败 `useFileSystem` 内部已 toast 状态保留；常驻可用无 `canSaveAs` 禁用——与主流编辑器一致允许从非 dirty 状态出副本）。`TitleBar` 在「保存」与「设置」之间插入「另存为」NButton（`size=small` `quaternary` `aria-label="另存为"` `loading={isSavingAs.value}`）；`EditorView` 新增 `Ctrl/Cmd+Shift+S` `keydown` 监听（`onMounted` 注册 `onBeforeUnmount` 清理，匹配 `(ctrlKey||metaKey) && shiftKey && (key==='S'||key==='s')` + `preventDefault()`，复用同一 `handleSaveAs` 函数引用避免与按钮逻辑漂移）。不动 `useEditorStore` / `useFileSystem`（M2 的 `saveAsFile` 已实现），本里程碑仅是组合层 + UI 接入；无新增依赖。验证：`npm run format` / `npm run lint` / `npm run build` 均通过。同步更新 `AGENTS.md` §3 目录结构与 §6 路线图。后续：M7 外部修改检测（`useExternalWatcher` + `ExternalChangeDialog`）、M8 外部异常处理、M9 体验打磨。任意超出「占位脚手架」的功能实现都属于**较大更新**，请同步更新本文件。_
 
