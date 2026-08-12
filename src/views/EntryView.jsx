@@ -47,10 +47,13 @@ export default defineComponent({
       try {
         const result = await fileSystem.openFile();
         if (!result) return;
+        // lastModified 作为外部修改检测的初始 baseline —— 打开瞬间就锁住，
+        // 不必等首次 poll 再建立基线。
         editorStore.loadFromFile({
           handle: result.handle,
           content: result.content,
           name: result.name,
+          lastModified: result.lastModified,
         });
         await router.push({ path: '/editor', query: { mode: 'open' } });
       } catch (err) {

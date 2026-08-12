@@ -7,8 +7,10 @@ import { hasFSAPI } from '@/utils/browser';
  *
  * 暴露方法（均返回 Promise）：
  * - `openFile()` — 弹出系统「打开」对话框，读取 Markdown 文件，返回 `{ handle, content, name }`
- * - `saveFile(handle, content)` — 用已有句柄写入（无对话框），返回 `{ ok, error }`
+ * - `saveFile(handle, content)` — 用已有句柄写入（无对话框），返回 `{ ok, error, lastModified? }`
+ *   · `lastModified` 仅在 `ok === true` 时返回，代表 close 之后的文件 mtime，供上层同步 baseline
  * - `saveAsFile(content, suggestedName)` — 弹出系统「另存为」对话框，返回新句柄
+ *   · 返回 `{ handle, name, lastModified }`，`lastModified` 同上
  * - `requestPermission(handle, mode?)` — 主动调用 `handle.requestPermission({ mode })`，
  *   弹出系统授权框；返回 `boolean` 表示是否授予
  * - `saveFileWithPermission(handle, content)` — `saveFile` 的封装：首次失败若属权限
@@ -76,7 +78,11 @@ export function useFileSystem() {
   /**
    * 打开本地 Markdown 文件。
    *
-   * @returns {Promise<{ handle: FileSystemFileHandle, content: string, name: string } | null>}
+   * 顺带返回文件的 `lastModified`：调用方在 `loadFromFile` 时把它作为
+   * baseline 写入 store，让外部修改检测从「打开瞬间」就锁住正确的 mtime，
+   * 而不是等首次 poll（见 `useExternalWatcher` 的设计）。
+   *
+   * @returns {Promise<{ handle: FileSystemFileHandle, content: string, name: string, lastModified: number } | null>}
    *          用户取消时返回 `null`；其他错误经 toast 后抛出。
    */
   async function openFile() {
@@ -89,7 +95,7 @@ export function useFileSystem() {
       });
       const file = await handle.getFile();
       const content = await file.text();
-      return { handle, content, name: file.name };
+      return { handle, content, name: file.name, lastModified: file.lastModified };
     } catch (err) {
       if (err && err.name === 'AbortError') return null;
       throw reportAndThrow(err, '打开文件失败');
@@ -116,7 +122,9 @@ export function useFileSystem() {
    *
    * @param {FileSystemFileHandle | null} handle
    * @param {string} content 完整 Markdown 内容
-   * @returns {Promise<{ ok: boolean, error: Error | null }>}
+   * @returns {Promise<{ ok: boolean, error: Error | null, lastModified: number | null }>}
+   *          `lastModified` 在 `ok === true` 时为 close 后的文件 mtime（供外部修改检测
+   *          同步 baseline）；失败 / 取消时为 `null`。
    * @throws {TypeError} 当 `handle` 为 null 时抛出
    */
   async function saveFile(handle, content) {
@@ -129,24 +137,31 @@ export function useFileSystem() {
       const writable = await handle.createWritable();
       await writable.write(content);
       await writable.close();
-      return { ok: true, error: null };
+      // close 之后再 getFile() 拿 fresh mtime，避免读到 close 之前的状态。
+      // 写盘基准（baseline）在调用方（markSaved）那里同步推进。
+      const snapshot = await handle.getFile();
+      return { ok: true, error: null, lastModified: snapshot.lastModified };
     } catch (err) {
       // 统一捕获，保证 error 对象能回到上层；同时根据 name 决定是否 toast。
       if (err && err.name === 'AbortError') {
         // 静默：权限回收等场景，避免打扰用户
-        return { ok: false, error: /** @type {Error} */ (err) };
+        return { ok: false, error: /** @type {Error} */ (err), lastModified: null };
       }
       if (err && err.name === 'NotFoundError') {
         message.error('保存失败：文件已被外部删除');
-        return { ok: false, error: /** @type {Error} */ (err) };
+        return { ok: false, error: /** @type {Error} */ (err), lastModified: null };
       }
       if (err && (err.name === 'NotAllowedError' || err.name === 'SecurityError')) {
         message.error('保存失败：文件权限已被撤销');
-        return { ok: false, error: /** @type {Error} */ (err) };
+        return { ok: false, error: /** @type {Error} */ (err), lastModified: null };
       }
       const detail = (err && (err.message || err.name)) || 'unknown error';
       message.error(`保存失败：${detail}`);
-      return { ok: false, error: err instanceof Error ? err : new Error(String(err)) };
+      return {
+        ok: false,
+        error: err instanceof Error ? err : new Error(String(err)),
+        lastModified: null,
+      };
     }
   }
 
@@ -200,9 +215,10 @@ export function useFileSystem() {
    *
    * @param {FileSystemFileHandle} handle
    * @param {string} content
-   * @returns {Promise<{ ok: boolean, error: Error | null, permissionRequested: boolean, permissionGranted: boolean }>}
+   * @returns {Promise<{ ok: boolean, error: Error | null, lastModified: number | null, permissionRequested: boolean, permissionGranted: boolean }>}
    *          字段 `permissionRequested` / `permissionGranted` 便于上层做差异化提示
-   *          （如「未授予写入权限，请手动保存」）。
+   *          （如「未授予写入权限，请手动保存」）；`lastModified` 透传自 `saveFile`，
+   *          仅在 `ok === true` 时有值。
    */
   async function saveFileWithPermission(handle, content) {
     let result = await saveFile(handle, content);
@@ -236,7 +252,8 @@ export function useFileSystem() {
    *
    * @param {string} content
    * @param {string} [suggestedName]
-   * @returns {Promise<{ handle: FileSystemFileHandle, name: string } | null>}
+   * @returns {Promise<{ handle: FileSystemFileHandle, name: string, lastModified: number } | null>}
+   *          `lastModified` 是 close 后的 mtime，与 `saveFile` 一致供外部修改检测同步 baseline。
    */
   async function saveAsFile(content, suggestedName) {
     ensureFSAPI();
@@ -249,7 +266,8 @@ export function useFileSystem() {
       await writable.write(content);
       await writable.close();
       const name = handle.name || suggestedName || 'untitled.md';
-      return { handle, name };
+      const snapshot = await handle.getFile();
+      return { handle, name, lastModified: snapshot.lastModified };
     } catch (err) {
       if (err && err.name === 'AbortError') return null;
       throw reportAndThrow(err, '另存为失败');

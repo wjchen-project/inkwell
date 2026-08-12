@@ -9,10 +9,19 @@ import { useFileSystem } from '@/composables/useFileSystem';
  * 职责：
  * - 每 N 秒（`useSettingsStore.externalWatchInterval`，默认 10s）轮询当前打开文件的
  *   `lastModified` 元信息；窗口 focus 时也立即检查一次（F-EM-11）。
- * - 首次 poll → 仅记录 baseline（lastExternalModified = metadata.lastModified），
- *   不触发任何动作；这是「打开文件瞬间外部可能刚被改过」的容忍窗口。
+ * - baseline（`useEditorStore.lastExternalModified`）由「自我写入」路径在 store
+ *   中维护：
+ *   - `useFileSystem.openFile` 返回 `lastModified`，`EntryView` 调用
+ *     `editorStore.loadFromFile({ lastModified })` 建立打开瞬间的基线。
+ *   - 每次成功写入（自动保存 / 手动保存 / 另存为）由 `saveFile` / `saveAsFile`
+ *     返回 `lastModified`，调用方通过 `editorStore.markSaved({ content, lastModified })`
+ *     推进基线，杜绝「把自我写入误判为外部修改」。
+ *   - 外部轮询自动重载 `reloadFromHandle` 同样把 baseline 推进到刚读到的 mtime。
+ *   - 即便某条路径漏传 `lastModified`，`checkNow` 首轮兜底仍能从盘面建立基线。
+ *   · 这些 baseline 全在 store 里维护，让单一真相源就能覆盖所有写入路径，
+ *     watcher 不再需要任何「同步回调」hook。
  * - 检测到 lastModified 变化：
- *   - `dirty === false` → 静默自动重载（`editorStore.markSaved({content})`）
+ *   - `dirty === false` → 静默自动重载（`editorStore.markSaved({content, lastModified})`）
  *     · vditor 通过 VditorEditor 自身的 `watch(value)` → `vditor.setValue` 自动同步
  *   - `dirty === true && externalState === 'clean'` → 弹 ExternalChangeDialog
  *   - `dirty === true && externalState === 'pending'` → 不弹窗（§9 #13），
@@ -30,11 +39,13 @@ import { useFileSystem } from '@/composables/useFileSystem';
  *
  * 关闭开关：
  *   - `useSettingsStore.externalWatchEnabled === false` → 不轮询、不 focus 触发；
- *     设置再次开启后重启轮询（立即 checkNow 一次以建立新 baseline）
+ *     设置再次开启后重启轮询（立即 checkNow 一次）
  *
  * handleRef 变化（如「另存为」产生新句柄 / 新建文档 → reset → fileHandle = null）：
  *   - 由内部 `watch(handleRef, ..., { immediate: true })` 自动重启 / 停止；
  *     EditorView 不需要手动调用 startWatch / stopWatch。
+ *   - baseline 由 loadFromFile / markSaved 维护，watcher 不主动重置；
+ *     handle 由有效句柄变成 null 时清掉，避免脏值飘到下一个文件上。
  *
  * 调用约束：
  *   - 必须在组件 `setup()` 中调用（需要 `onBeforeUnmount`）。
@@ -63,20 +74,25 @@ export function useExternalWatcher(handleRef) {
   let intervalId = null;
   /** 防止 checkNow 并发：focus + interval 同时触发时只跑一次 */
   let checking = false;
-  /** 上次 poll 的 metadata.lastModified；null 表示尚未建立 baseline */
-  let lastExternalModified = /** @type {number | null} */ (null);
+  // 注意：`lastExternalModified` 不再是 watcher 内部的局部变量，而是
+  // 存放在 `useEditorStore` 中（字段已声明）。这样所有「自我写入」路径
+  // （useAutoSave / TitleBar / useSaveAs）通过 `markSaved({ lastModified })`
+  // 自动同步 baseline，无需调用方记着通知 watcher；同理 `loadFromFile`
+  // 在打开文件时一次性把 baseline 落到 store。
 
   /**
    * 把当前 handle 的内容读到 store。`editorStore.markSaved` 会同步更新
-   * `content` / `lastSavedContent` / `dirty`，VditorEditor 端通过 `watch(value)`
-   * 自动调 `vditor.setValue(newContent, true)` 完成 UI 刷新。
+   * `content` / `lastSavedContent` / `dirty` / `lastExternalModified`，
+   * VditorEditor 端通过 `watch(value)` 自动调 `vditor.setValue(newContent, true)`
+   * 完成 UI 刷新。同时把 baseline 推进到本次读盘拿到的 mtime，避免下一次
+   * poll 把「我们刚读到的文件」再判为外部修改。
    *
    * @param {FileSystemFileHandle} handle
    */
   async function reloadFromHandle(handle) {
     const file = await handle.getFile();
     const content = await file.text();
-    editorStore.markSaved({ content });
+    editorStore.markSaved({ content, lastModified: file.lastModified });
   }
 
   /**
@@ -93,16 +109,17 @@ export function useExternalWatcher(handleRef) {
     try {
       const metadata = await fileSystem.getMetadata(handle);
 
-      // 首次 poll：仅建立 baseline，不触发动作
-      if (lastExternalModified === null) {
-        lastExternalModified = metadata.lastModified;
+      // baseline 由 store 维护。null 时（兜底：loadFromFile / markSaved
+      // 漏传 lastModified）按当前盘面建立基线，不触发任何动作。
+      if (editorStore.lastExternalModified === null) {
+        editorStore.lastExternalModified = metadata.lastModified;
         return;
       }
       // 无变化
-      if (metadata.lastModified === lastExternalModified) return;
+      if (metadata.lastModified === editorStore.lastExternalModified) return;
 
-      // 有变化
-      lastExternalModified = metadata.lastModified;
+      // 有变化 → 推进 baseline
+      editorStore.lastExternalModified = metadata.lastModified;
 
       // pending 状态下不再弹窗（§9 #13），由下次保存触发二次确认
       if (editorStore.externalState === 'pending') return;
@@ -133,9 +150,10 @@ export function useExternalWatcher(handleRef) {
    */
   function startWatch() {
     if (intervalId !== null) return; // 幂等
-    // 重置 baseline：新 handle / 重新启用开关时重新建立基线
-    lastExternalModified = null;
-    // 立即检查一次（建立 baseline + 检测是否打开瞬间已有变化）
+    // baseline 由 useEditorStore 维护（loadFromFile / markSaved 写入），
+    // watcher 不主动重置；checkNow 内已对 null 情况做了兜底——首轮 poll
+    // 自然读到盘面 mtime 并落地，避免漏传 lastModified 的路径失效。
+    // 立即检查一次（baseline 兜底 + 检测 mount 之后是否有变化）
     void checkNow();
     // 定时轮询（注意：始终注册 interval，但其内部 tick 通过 checking 守卫 + 设置开关避免抖腾）
     intervalId = setInterval(
@@ -154,7 +172,8 @@ export function useExternalWatcher(handleRef) {
       clearInterval(intervalId);
       intervalId = null;
     }
-    // 不重置 lastExternalModified：仅停止 IO；下次 startWatch 会重置 baseline
+    // 不动 baseline —— baseline 由 useEditorStore 统一维护（loadFromFile /
+    // markSaved），stopWatch 只负责停 IO；下次 startWatch 通过 checkNow 自然落基线。
   }
 
   /**
@@ -194,14 +213,16 @@ export function useExternalWatcher(handleRef) {
       if (newHandle === oldHandle) return;
       stopWatch();
       // 新 handle 时清状态 + 启动；handle=null 时仅清状态（M8 会在
-      // orphaned 处理后调用 setExternalState）
+      // orphaned 处理后调用 setExternalState）。
+      // 注意：handle 由有效句柄变成 null 时，把 baseline 也清掉，避免脏
+      // 句柄的 mtime 数值飘到下一个文件上引起误判。
       if (newHandle) {
         editorStore.setExternalState('clean');
         // 仅在开关打开时启动 interval；否则仅建立 baseline 一次
         if (settingsStore.externalWatchEnabled) startWatch();
       } else {
         editorStore.setExternalState('clean');
-        lastExternalModified = null;
+        editorStore.lastExternalModified = null;
       }
     },
     { immediate: true },

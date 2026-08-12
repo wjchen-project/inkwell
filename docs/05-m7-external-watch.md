@@ -71,8 +71,16 @@ checkNow():
     return  // M7 暂不处理外部异常，仅静默
   }
 
-  if (metadata.lastModified === lastExternalModified) return  // 无变化
-  lastExternalModified = metadata.lastModified
+  // baseline 由 useEditorStore.lastExternalModified 维护；loadFromFile /
+  // markSaved 已经把每次「自我写入」的 mtime 推进到这里，避免误判。
+  // null 时（兜底：loadFromFile / markSaved 漏传）首轮 poll 自然落基线。
+  baseline = useEditorStore.lastExternalModified
+  if (baseline === null) {
+    useEditorStore.lastExternalModified = metadata.lastModified
+    return
+  }
+  if (metadata.lastModified === baseline) return  // 无变化
+  useEditorStore.lastExternalModified = metadata.lastModified
 
   // 有变化
   if (!useEditorStore.dirty) {
@@ -84,8 +92,9 @@ checkNow():
   }
 
 reloadFromHandle():
-  content = await handleRef.value.getFile().then(f => f.text())
-  useEditorStore.markSaved({ content })  // 清 dirty，更新 lastSavedContent
+  file = await handleRef.value.getFile()
+  content = await file.text()
+  useEditorStore.markSaved({ content, lastModified: file.lastModified })  // 清 dirty + 推进 baseline
   vditor.setValue(content)  // 通知 vditor
 ```
 
@@ -145,7 +154,8 @@ triggerSave():
     }
     // 静默写入
     await useFileSystem.saveFile(handle, content)
-    useEditorStore.markSaved({ content })
+    // saveFile 成功后 lastModified 在结果里返回；透传给 markSaved 同步 baseline
+    useEditorStore.markSaved({ content, lastModified: result.lastModified })
     // 注意：externalState 保持 'pending'，直到下次轮询或重载
   } else {
     // 普通保存
@@ -224,6 +234,25 @@ triggerSave():
 - [ ] `npm run format` 通过
 - [ ] console 无内存泄漏警告（轮询监听器正确清理）
 - [ ] 多次进入/离开编辑器后，无重复 `setInterval` 累积
+
+### 4.5 「自我写入」识别（M7 收尾修复）
+
+为消除「auto-save 写入后下次 poll 误判为外部修改」的问题，baseline 已从
+watcher 闭包内的局部变量迁到 `useEditorStore.lastExternalModified`：
+
+- `useFileSystem.openFile` / `saveFile` / `saveAsFile` 在 `close()` 之后
+  `getFile()` 拿 fresh mtime，一并写入返回对象（零额外 IO，与原本的
+  `getMetadata` 复用同一份 snapshot）。
+- `useEditorStore.markSaved({ content, lastModified? })` 与
+  `loadFromFile({ ..., lastModified? })` 各加一个可选字段，`typeof === 'number'`
+  才推进 baseline——旧调用方不传也照常工作。
+- 所有写入路径（`useAutoSave` 两条分支、`TitleBar.handleSave`、
+  `useSaveAs.handleSaveAs`、`reloadFromHandle`）都把 `lastModified` 透传给
+  `markSaved`，单一真理源覆盖所有写入场景。
+- `useExternalWatcher.checkNow` 仍保留 `null` 兜底——任意路径漏传 `lastModified`
+  时首轮 poll 自然落基线。
+
+> 实现细节参见 `AGENTS.md` §6 M7 收尾修复子项与「最后更新」历史段。
 
 ---
 

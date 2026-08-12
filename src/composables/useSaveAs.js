@@ -65,8 +65,13 @@ export function useSaveAs() {
       // 对应同一个文件——这样如果用户在系统对话框弹出期间又输入了内容，
       // markSaved({content}) 时 fileName/handle 已指向新路径，语义自洽。
       // （实际上 dialog 关闭后的 editorStore.content 仍是最新值，不影响 M6 验收。）
+      // 顺带把 lastModified 同步进 baseline：另存为产生的是新文件、新 mtime，
+      // 不更新就会让外部修改检测把「刚写的 mtime」误判为外部修改。
       editorStore.updateFileHandle({ handle: result.handle, name: result.name });
-      editorStore.markSaved({ content: editorStore.content });
+      editorStore.markSaved({
+        content: editorStore.content,
+        lastModified: result.lastModified,
+      });
       message.success('另存为成功');
     } catch (err) {
       // useFileSystem.saveAsFile 已在错误路径上 toast「另存为失败：<原因>」，

@@ -104,10 +104,15 @@ export default defineComponent({
       try {
         // 使用 saveFileWithPermission：首次写入遇到权限错误时会自动请求一次写权限。
         // 授权后重试仍失败 → 使用 FileSystem 已 toast 过 + 给出“需要手动保存”以外的上下文。
-        const { ok, permissionRequested, permissionGranted } =
+        const { ok, lastModified, permissionRequested, permissionGranted } =
           await fileSystem.saveFileWithPermission(editorStore.fileHandle, editorStore.content);
         if (ok) {
-          editorStore.markSaved({ content: editorStore.content });
+          // 透传 lastModified：手动保存与自动保存共享同一条 baseline 同步路径，
+          // 避免外部修改检测把「我们自己刚写的 mtime」误判为外部修改。
+          editorStore.markSaved({
+            content: editorStore.content,
+            lastModified: lastModified ?? undefined,
+          });
           message.success('保存成功');
           return;
         }

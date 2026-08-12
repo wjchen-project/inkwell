@@ -133,7 +133,12 @@ export function useAutoSave(contentRef, options = {}) {
         if (myGen !== generation) return; // 期间状态变化，本轮放弃
         if (result) {
           editorStore.updateFileHandle({ handle: result.handle, name: result.name });
-          editorStore.markSaved({ content: contentSnapshot });
+          // 透传 lastModified：markSaved 同步 baseline，避免之后外部修改检测
+          // 把「我们自己刚写的 mtime」误判为外部修改。
+          editorStore.markSaved({
+            content: contentSnapshot,
+            lastModified: result.lastModified,
+          });
           options.onFirstSave?.();
         }
         // 用户取消（AbortError → null）：保留 dirty，无 toast
@@ -168,7 +173,11 @@ export function useAutoSave(contentRef, options = {}) {
             : await fileSystem.saveFile(handle, contentSnapshot);
         if (myGen !== generation) return;
         if (result.ok) {
-          editorStore.markSaved({ content: contentSnapshot });
+          // 透传 lastModified：markSaved 同步 baseline（外部修改检测使用）。
+          editorStore.markSaved({
+            content: contentSnapshot,
+            lastModified: result.lastModified ?? undefined,
+          });
           retryCount.value = 0;
           return;
         }
