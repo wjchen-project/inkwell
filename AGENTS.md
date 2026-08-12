@@ -23,7 +23,7 @@
 ### 运行时依赖 (`dependencies`)
 
 - **Vue `^3.5.40`** —— Composition API，**JSX** 渲染函数（`@vitejs/plugin-vue-jsx`），不使用 `<template>` / `<script setup>`
-- **Vue Router `^5.2.0`** —— `createWebHashHistory()`（hash 模式，URL 形如 `/#/editor`）
+- **Vue Router `^5.2.0`** —— `createWebHistory(import.meta.env.BASE_URL)`（history 模式，URL 形如 `/editor`；`BASE_URL` 取自 Vite `base`，dev 默认 `/`，生产构建由 CI 动态传入 `--base=/${{ github.event.repository.name }}/`）
 - **Pinia `^4.0.2`** —— 状态管理（`useEditorStore` / `useSettingsStore`，详见 [§6](#6-待补齐--路线图持续更新)）
 - **Naive UI `^2.44.1`** —— UI 组件库，按需全局注册，详见 [§5.7](#57-第三方组件与-plugins-约定)；CSS-in-JS，无需单独引入样式文件
 - **vditor `^3.11.2`** —— Markdown 编辑器核心（M2 起接入）。**不在** `src/plugins/` 中注册（它不是 UI 组件库），由 `src/components/editor/VditorEditor.jsx` 直接 import；CSS 由 `src/styles/index.css` 顶部 `@import 'vditor/dist/index.css';` 引入
@@ -72,7 +72,7 @@ inkwell/
     ├── main.js             # createApp → Pinia → hydrateSettings → Router → Plugins → mount('#app')
     ├── App.jsx             # 根组件（BrowserGate > router-view）
     ├── router/
-    │   ├── index.js        # createWebHashHistory + 聚合 routes.js
+    │   ├── index.js        # createWebHistory(BASE_URL) + 聚合 routes.js
     │   └── routes.js       # 路由定义（`/` + `/editor`，M1 起懒加载）
     ├── plugins/            # 第三方组件/插件统一入口（见 §5.7）
     │   ├── index.js        #   - installPlugins(app)：遍历 `plugins` 数组
@@ -166,7 +166,8 @@ inkwell/
 
 ### 5.5 路由
 
-- `createWebHashHistory()` —— hash 模式部署到 GitHub Pages 等静态托管时深链不会 404，无需服务器端 rewrite 规则；URL 形如 `/#/editor`
+- `createWebHistory(import.meta.env.BASE_URL)` —— history 模式，URL 形如 `/editor`（dev）/ `/<repo>/editor`（生产）。`BASE_URL` 与 Vite 的 `base` 联动：dev 默认 `/`，生产构建由 CI 传入 `--base=/${{ github.event.repository.name }}/`，让产物与 GitHub Pages 项目页 URL（`https://<owner>.github.io/<repo>/`）对齐。`favicon` 等 `<link>` 资源需用 `%BASE_URL%` 占位符（Vite 在 build / dev 都会替换为 `BASE_URL`），不要写死相对 / 绝对路径——见 `index.html` 的 favicon 写法
+- **静态托管的 SPA fallback 注意**：history 模式下，部署到**没有** SPA fallback 的静态托管（如 GitHub Pages 项目页默认）时，深链（`/editor` 等）刷新 / 直访会被托管当作 404。Vite `vite preview` 与 dev 服务器支持 fallback，但 GitHub Pages 默认**不**支持；如需保留深链可用，需自行加 `public/404.html` + `index.html` SPA 还原脚本（GitHub Pages 官方推荐做法）。**本项目目前不做该兜底**，入口页 `/` 与刷新首页正常可用，深链刷新 / 直访 404 为已知风险，部署前请评估
 - 路由模块按 `src/router/*.js` 拆分，主入口 `index.js` 仅做 `routes` 聚合
 - 路由定义统一懒加载：`component: () => import('@/views/XxxView.jsx')`
 - 守卫（beforeEach）如需登录态校验，统一走 Pinia store，**不要**在组件内做路由跳转
@@ -279,7 +280,14 @@ npm run preview
 
 ---
 
-_最后更新：路由改用 hash 模式（解决 GitHub Pages 子路径深链 404） + 一组发布配套更新。
+_最后更新：路由改回 history 模式 + favicon 改用 `%BASE_URL%` 占位符。
+
+- **路由改回 history 模式**：将 `src/router/index.js` 的 `createWebHashHistory()` 改回 `createWebHistory(import.meta.env.BASE_URL)`。URL 由 `/#/editor` 恢复为 `/editor`（dev）/ `/<repo>/editor`（生产）。`BASE_URL` 取自 Vite 的 `base`，dev 默认 `/`、生产由 CI `--base=/${{ github.event.repository.name }}/` 动态注入。`EntryView` / `EditorView` 中的 `router.push/replace({ path, query })` 写法无需改动，history 模式与 hash 模式对 `path` / `query` 的处理是兼容的。**已知风险**：GitHub Pages 项目页默认无 SPA fallback，部署后深链（`/editor`）刷新 / 直访会 404——`vite preview` / dev 服务器不受影响，Vite preview 默认支持 history fallback；如需 Pages 深链可用，后续可加 `public/404.html` + `index.html` SPA 还原脚本（GitHub Pages 官方推荐做法）。本项目暂不兜底，入口页 `/` 正常。
+- **favicon 改用 `%BASE_URL%` 占位符**：`index.html` 的 `<link rel="icon" href="./favicon.svg" />` 改为 `href="%BASE_URL%favicon.svg"`。背景：Vite 只对 `<script type="module">` 和 `<link rel="stylesheet">` 自动套 `--base` 前缀，对 `<link rel="icon">` 不处理——原本靠相对路径兜底在子路径下也工作，但并不"显式"受 `--base` 控制。`%BASE_URL%` 是 Vite 官方占位符，build / dev 都会被替换为 `import.meta.env.BASE_URL`；注意末尾**不带 `/`**（BASE_URL 本身带尾斜杠，多写会变 `//favicon.svg`）。验证 `--base=/inkwell-test/` 构建产物 `dist/index.html`：`<script>` / `<link stylesheet>` 已自动加 `/inkwell-test/` 前缀，`<link rel="icon">` 现在也变为 `/inkwell-test/favicon.svg`。`EntryView.jsx` 的 logo `<img src="./favicon.svg">` 本身就是相对路径，子路径下也工作，**未改动**。
+
+无新增依赖；不动 `useEditorStore` / `useSettingsStore` / 主题 / 自动保存 / 外部修改检测 / 设置面板 / `useFileSystem` / 路由表 / vite 配置 / CI workflow。验证：`npm run format` / `npm run lint` / `npm run build`（默认 base + `--base=/inkwell-test/` 两种）均通过，`dist/index.html` favicon 链接随 base 正确变化。同步更新 `AGENTS.md` §2 / §3 / §5.5。任意超出「占位脚手架」的功能实现都属于**较大更新**，请同步更新本文件。_
+
+_历史：路由改用 hash 模式（解决 GitHub Pages 子路径深链 404） + 一组发布配套更新。
 
 - **路由 hash 化**：修改 `src/router/index.js` —— `createWebHistory(import.meta.env.BASE_URL)` → `createWebHashHistory()`。URL 由 `/editor` 变为 `/#/editor`，深链刷新 / 直接访问不再 404（hash 永远与 `index.html` 同级，静态托管不需要 rewrite 规则）。`EntryView` / `EditorView` 中的 `router.push/replace({ path, query })` 写法无需改动，hash 模式自动加 `#` 前缀。同步更新 `AGENTS.md` §2 / §3 / §5.5。
 
