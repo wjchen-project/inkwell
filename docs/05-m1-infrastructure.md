@@ -1,5 +1,6 @@
 # 05 · M1 · 基础设施（Infrastructure）
 
+> ✅ **已通过验收**（v1.1.3 最终交付）
 > 第五阶段 · 里程碑 1 / 9
 > 关联设计文档：[04-design.md §2 目录结构](../04-design.md#2-目录结构) / [§3 状态管理](../04-design.md#3-状态管理pinia-stores) / [§6.5 useUnsavedGuard](../04-design.md#65-useunsavedguardisdirtyref-beforeleavefn)
 > 关联需求：[Phase 2 §9 #1](../02-editor-and-experience.md#91-phase-2-§9-原待澄清问题决议)（持久化） / [§9 #17](../02-editor-and-experience.md#91-phase-2-§9-原待澄清问题决议)（浏览器目标）
@@ -107,61 +108,61 @@ persistence:
 
 #### 目录与文件
 
-- [ ] `src/views/`、`src/components/`、`src/composables/`、`src/utils/`、`src/styles/` 五个目录均已创建（可为空，但需存在）
-- [ ] `src/components/common/` 与 `src/components/editor/` 子目录已创建
-- [ ] `src/stores/useEditorStore.js`、`src/stores/useSettingsStore.js`、`src/router/routes.js` 已创建
+- [x] `src/views/`、`src/components/`、`src/composables/`、`src/utils/`、`src/styles/` 五个目录均已创建（可为空，但需存在）
+- [x] `src/components/common/` 与 `src/components/editor/` 子目录已创建
+- [x] `src/stores/useEditorStore.js`、`src/stores/useSettingsStore.js`、`src/router/routes.js` 已创建
 
 #### useEditorStore
 
-- [ ] 默认初始值与 §3.2 一致
-- [ ] `setContent(value)` 同步更新 `content` 并将 `dirty` 置为 `true`（除非 `value === lastSavedContent`）
-- [ ] `markSaved({ content })` 清 `dirty`，更新 `lastSavedContent`
-- [ ] `updateFileHandle({ handle, name })` 更新 `fileHandle` + `fileName`，**不**改变 `dirty`
-- [ ] `loadFromFile({ handle, content, name })` 重置 store：`dirty=false`、`externalState='clean'`、`lastExternalModified=null`，更新句柄 + 文件名 + 内容 + lastSavedContent
-- [ ] `displayName` 在 `dirty=true` 时返回 `"<filename> ●"`
+- [x] 默认初始值与 §3.2 一致
+- [x] `setContent(value)` 同步更新 `content` 并将 `dirty` 置为 `true`（除非 `value === lastSavedContent`）
+- [x] `markSaved({ content })` 清 `dirty`，更新 `lastSavedContent`
+- [x] `updateFileHandle({ handle, name })` 更新 `fileHandle` + `fileName`，**不**改变 `dirty`
+- [x] `loadFromFile({ handle, content, name })` 重置 store：`dirty=false`、`externalState='clean'`、`lastExternalModified=null`，更新句柄 + 文件名 + 内容 + lastSavedContent
+- [x] `displayName` 在 `dirty=true` 时返回 `"<filename> ●"`
 
 #### useSettingsStore
 
-- [ ] 默认值与 §3.3 一致
-- [ ] 任一字段变更后 300ms 内写入 `localStorage['md-editor-settings']`（JSON 序列化）
-- [ ] 应用启动时（`main.js` 中）：若 `localStorage` 中存在 key，则 `JSON.parse` + `$patch`；解析失败时回退默认值 + console.warn
-- [ ] 字段 schema 与 §3.3 完全一致（`theme` 仅允许三个值，其他字段有类型校验）
+- [x] 默认值与 §3.3 一致
+- [x] 任一字段变更后 300ms 内写入 `localStorage['md-editor-settings']`（JSON 序列化）
+- [x] 应用启动时（`main.js` 中）：若 `localStorage` 中存在 key，则 `JSON.parse` + `$patch`；解析失败时回退默认值 + console.warn
+- [x] 字段 schema 与 §3.3 完全一致（`theme` 仅允许三个值，其他字段有类型校验）
 
 #### 路由
 
-- [ ] `routes` 数组含 `/` 与 `/editor` 两条
-- [ ] 路由懒加载（`() => import('@/views/EntryView.jsx')`）
-- [ ] 浏览器访问 `/` 与 `/editor` 不报错（即使组件是 placeholder）
+- [x] `routes` 数组含 `/` 与 `/editor` 两条
+- [x] 路由懒加载（`() => import('@/views/EntryView.jsx')`）
+- [x] 浏览器访问 `/` 与 `/editor` 不报错（即使组件是 placeholder）
 
 #### BrowserGate
 
-- [ ] 检测 `window.showOpenFilePicker && window.showSaveFilePicker`
-- [ ] 检测失败时显示「请使用 Chrome / Edge 获得完整体验」提示
-- [ ] 检测通过时不显示提示，直接渲染 `router-view`
-- [ ] 不阻断路由跳转（非阻塞）
+- [x] 检测 `window.showOpenFilePicker && window.showSaveFilePicker`
+- [x] 检测失败时显示「请使用 Chrome / Edge 获得完整体验」提示
+- [x] 检测通过时不显示提示，直接渲染 `router-view`
+- [x] 不阻断路由跳转（非阻塞）
 
 #### App.jsx
 
-- [ ] 不再渲染 Phase 1 占位按钮
-- [ ] 结构：`<BrowserGate><router-view /></BrowserGate>`
-- [ ] `useSettingsStore` 在 `main.js` 初始化后能正确读到主题
+- [x] 不再渲染 Phase 1 占位按钮
+- [x] 结构：`<BrowserGate><router-view /></BrowserGate>`
+- [x] `useSettingsStore` 在 `main.js` 初始化后能正确读到主题
 
 ### 4.2 持久化验收
 
-- [ ] 设置 `useSettingsStore.theme='dark'` → 等待 300ms → `localStorage['md-editor-settings']` 含 `{"theme":"dark",...}`
-- [ ] 刷新页面后 `useSettingsStore.theme` 恢复为 `'dark'`
-- [ ] 手动改坏 `localStorage['md-editor-settings']`（如 `"invalid json"`）→ 应用启动正常，store 回退默认值，console.warn 一条
+- [x] 设置 `useSettingsStore.theme='dark'` → 等待 300ms → `localStorage['md-editor-settings']` 含 `{"theme":"dark",...}`
+- [x] 刷新页面后 `useSettingsStore.theme` 恢复为 `'dark'`
+- [x] 手动改坏 `localStorage['md-editor-settings']`（如 `"invalid json"`）→ 应用启动正常，store 回退默认值，console.warn 一条
 
 ### 4.3 浏览器兼容验收
 
-- [ ] Chrome / Edge / Opera / Brave 中：BrowserGate 不显示提示
-- [ ] Firefox / Safari 中：BrowserGate 显示「请使用 Chrome / Edge」提示（手动测试，或在 DevTools 中模拟）
+- [x] Chrome / Edge / Opera / Brave 中：BrowserGate 不显示提示
+- [x] Firefox / Safari 中：BrowserGate 显示「请使用 Chrome / Edge」提示（手动测试，或在 DevTools 中模拟）
 
 ### 4.4 质量验收
 
-- [ ] `npm run lint` 通过
-- [ ] `npm run build` 通过
-- [ ] `npm run format` 通过（运行后无文件改动）
+- [x] `npm run lint` 通过
+- [x] `npm run build` 通过
+- [x] `npm run format` 通过（运行后无文件改动）
 
 ---
 

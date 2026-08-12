@@ -1,5 +1,6 @@
 # 05 · M8 · 外部异常处理（External Anomaly Handling）
 
+> ✅ **已通过验收**（v1.1.3 最终交付）
 > 第五阶段 · 里程碑 8 / 9
 > 关联设计文档：[04-design.md §8 错误处理](../04-design.md#8-错误处理策略) / [§6.3 useExternalWatcher](../04-design.md#63-useexternalwatcherhandleref-contentref)
 > 关联需求：[Phase 3 §4.2 F-EM-7~9](../03-file-capabilities.md#42-外部修改检测-external-modification-detection) / [§9 #11 外部删除报错+另存为](../03-file-capabilities.md) / [§9 #14 外部移动/重命名](../03-file-capabilities.md)
@@ -135,56 +136,56 @@ saveAsFile(content, suggestedName):
 
 #### 外部删除
 
-- [ ] 打开文件 A → 用 `rm` 或 Finder 删除 A → 下次轮询（≤10s）检测到 `NotFoundError`
-- [ ] 检测到后：`externalState = 'orphaned'`，停止轮询
-- [ ] TitleBar 显示「文件不可用」徽标
-- [ ] 弹出 toast「文件已被删除 / 移动 / 重命名，请另存为」
-- [ ] 常规保存按钮禁用
-- [ ] 「另存为」按钮仍可用
-- [ ] 「另存为」成功 → `externalState = 'clean'`，徽标消失，轮询恢复
+- [x] 打开文件 A → 用 `rm` 或 Finder 删除 A → 下次轮询（≤10s）检测到 `NotFoundError`
+- [x] 检测到后：`externalState = 'orphaned'`，停止轮询
+- [x] TitleBar 显示「文件不可用」徽标
+- [x] 弹出 toast「文件已被删除 / 移动 / 重命名，请另存为」
+- [x] 常规保存按钮禁用
+- [x] 「另存为」按钮仍可用
+- [x] 「另存为」成功 → `externalState = 'clean'`，徽标消失，轮询恢复
 
 #### 外部移动 / 重命名
 
-- [ ] 文件被 `mv` 到其他路径 → handle 仍指向原路径 → NotFoundError → 同上处理
-- [ ] 文件被重命名（同目录）→ 同上
+- [x] 文件被 `mv` 到其他路径 → handle 仍指向原路径 → NotFoundError → 同上处理
+- [x] 文件被重命名（同目录）→ 同上
 
 #### 权限撤销
 
-- [ ] 在浏览器设置中撤销文件权限 → 下次轮询 → `NotAllowedError` / `SecurityError`
-- [ ] 处理流程与删除一致
+- [x] 在浏览器设置中撤销文件权限 → 下次轮询 → `NotAllowedError` / `SecurityError`
+- [x] 处理流程与删除一致
 
 #### orphaned 下的写行为
 
-- [ ] 触发自动保存 → 检测 `externalState === 'orphaned'` → 跳过保存
-- [ ] 手动 vditor 工具栏「保存」→ 按钮禁用
-- [ ] 任何路径调用 `useFileSystem.saveFile(handle, content)` → 抛错 → toast
+- [x] 触发自动保存 → 检测 `externalState === 'orphaned'` → 跳过保存
+- [x] 手动 vditor 工具栏「保存」→ 按钮禁用
+- [x] 任何路径调用 `useFileSystem.saveFile(handle, content)` → 抛错 → toast
 
 #### 「另存为」恢复
 
-- [ ] orphaned 状态下点击「另存为」→ 弹保存对话框
-- [ ] 选择新路径 → 写入成功 → 新句柄建立
-- [ ] 新句柄建立后：`externalState = 'clean'`，徽标消失
-- [ ] 外部轮询在新句柄下重启（10s 后第一次检查）
-- [ ] 用户继续编辑 → 正常自动保存
+- [x] orphaned 状态下点击「另存为」→ 弹保存对话框
+- [x] 选择新路径 → 写入成功 → 新句柄建立
+- [x] 新句柄建立后：`externalState = 'clean'`，徽标消失
+- [x] 外部轮询在新句柄下重启（10s 后第一次检查）
+- [x] 用户继续编辑 → 正常自动保存
 
 ### 4.2 边界场景
 
-- [ ] orphaned 状态下用户手动关闭标签 → `beforeunload` 正常提示（与 M4 一致）
-- [ ] orphaned 状态下用户点击「新建 / 打开」（路由切换）→ M4 拦截生效
-- [ ] orphaned 状态下刷新页面 → 重新进入 → `fileHandle` 失效（浏览器侧权限丢失）→ 启动时检测失败 → 进入空白编辑器或 fallback
+- [x] orphaned 状态下用户手动关闭标签 → `beforeunload` 正常提示（与 M4 一致）
+- [x] orphaned 状态下用户点击「新建 / 打开」（路由切换）→ M4 拦截生效
+- [x] orphaned 状态下刷新页面 → 重新进入 → `fileHandle` 失效（浏览器侧权限丢失）→ 启动时检测失败 → 进入空白编辑器或 fallback
 
 ### 4.3 性能与稳定性
 
-- [ ] 反复 trigger `markOrphaned` → 状态幂等（多次调用结果一致）
-- [ ] stopWatch 后 `setInterval` 被清除，浏览器无「未清理 timer」警告
-- [ ] toast 出现频率合理（不要每次轮询都 toast — orphaned 后停止轮询，不再 toast）
+- [x] 反复 trigger `markOrphaned` → 状态幂等（多次调用结果一致）
+- [x] stopWatch 后 `setInterval` 被清除，浏览器无「未清理 timer」警告
+- [x] toast 出现频率合理（不要每次轮询都 toast — orphaned 后停止轮询，不再 toast）
 
 ### 4.4 质量验收
 
-- [ ] `npm run lint` 通过
-- [ ] `npm run build` 通过
-- [ ] `npm run format` 通过
-- [ ] 无 console 异常（孤儿状态期间也不应有）
+- [x] `npm run lint` 通过
+- [x] `npm run build` 通过
+- [x] `npm run format` 通过
+- [x] 无 console 异常（孤儿状态期间也不应有）
 
 ---
 

@@ -1,5 +1,6 @@
 # 05 · M3 · 自动保存 + 未保存指示（Auto-Save & Dirty Indicator）
 
+> ✅ **已通过验收**（v1.1.3 最终交付）
 > 第五阶段 · 里程碑 3 / 9
 > 关联设计文档：[04-design.md §3.1 useEditorStore](../04-design.md#31-useeditorstore) / [§5.2 TitleBar](../04-design.md#52-titlebar) / [§6.2 useAutoSave](../04-design.md#62-useautosavecontentref-options)
 > 关联需求：[Phase 2 §5.1 自动保存](../02-editor-and-experience.md#51-自动保存) / [Phase 2 §5.2 「未保存」指示](../02-editor-and-experience.md#52-未保存指示) / [§9 #4 自动保存失败处理](../02-editor-and-experience.md) / [§9 #8 圆点颜色](../02-editor-and-experience.md)
@@ -128,23 +129,23 @@ M2 仅显示文件名；M3 加入：
 
 #### 自动保存
 
-- [ ] 编辑器输入文字 → 等待 5 秒（默认）→ 自动写入磁盘
-- [ ] 写入成功后 `useEditorStore.dirty = false`
-- [ ] 连续输入 → 防抖生效（仅最后一次输入触发保存）
-- [ ] 「新建文档」首次触发自动保存 → 自动走「另存为」流程（弹保存对话框）
-- [ ] 「新建文档」首次保存成功后 → 文件句柄更新 + 标题栏文件名更新
-- [ ] 「新建文档」首次保存用户取消 → dirty 保持 true
-- [ ] 「打开文档」编辑后 → 自动保存直接写入原路径（不弹对话框）
-- [ ] 编辑间隔 < 防抖时间（5s）→ 仅最后一次触发
+- [x] 编辑器输入文字 → 等待 5 秒（默认）→ 自动写入磁盘
+- [x] 写入成功后 `useEditorStore.dirty = false`
+- [x] 连续输入 → 防抖生效（仅最后一次输入触发保存）
+- [x] 「新建文档」首次触发自动保存 → 自动走「另存为」流程（弹保存对话框）
+- [x] 「新建文档」首次保存成功后 → 文件句柄更新 + 标题栏文件名更新
+- [x] 「新建文档」首次保存用户取消 → dirty 保持 true
+- [x] 「打开文档」编辑后 → 自动保存直接写入原路径（不弹对话框）
+- [x] 编辑间隔 < 防抖时间（5s）→ 仅最后一次触发
 
 #### 圆点指示
 
-- [ ] 新建文档初始进入编辑器 → 圆点显示（`dirty=true`）
-- [ ] 输入文字 → 圆点持续显示
-- [ ] 自动保存成功 → 圆点消失
-- [ ] 圆点颜色 = Naive UI primary（实测：light 主题下偏蓝紫；dark 主题下偏浅蓝）
-- [ ] 圆点 `aria-label="未保存"`，屏幕阅读器能识别
-- [ ] 圆点旁文件名正确（`useEditorStore.fileName`）
+- [x] 新建文档初始进入编辑器 → 圆点显示（`dirty=true`）
+- [x] 输入文字 → 圆点持续显示
+- [x] 自动保存成功 → 圆点消失
+- [x] 圆点颜色 = Naive UI primary（实测：light 主题下偏蓝紫；dark 主题下偏浅蓝）
+- [x] 圆点 `aria-label="未保存"`，屏幕阅读器能识别
+- [x] 圆点旁文件名正确（`useEditorStore.fileName`）
 
 #### 失败处理（Phase 2 §9 #4）
 
@@ -156,23 +157,23 @@ M2 仅显示文件名；M3 加入：
 > 被拒则跳出退避循环，给出「未授予写入权限，请点击编辑器「保存」按钮重新授权」
 > 的差异化提示。
 
-- [ ] 写入失败（业务错误，如 `NotFoundError` / `NotAllowedError` / IO）→ toast 由 `useFileSystem.saveFile` 触发
-- [ ] 写入失败（权限错误）→ `saveFileWithPermission` 自动弹系统授权框一次，授权后重试
-- [ ] 三次全部失败（业务错误）→ toast「自动保存失败，请手动保存」 + dirty 保持
-- [ ] 三次失败但权限被拒 → toast「未授予写入权限，请点击编辑器「保存」按钮重新授权」 + dirty 保持（不再退避）
-- [ ] 重试中 `retryCount` 反映当前次数（0 / 1 / 2）
-- [ ] 重试成功 → `dirty = false` + `retryCount = 0`
+- [x] 写入失败（业务错误，如 `NotFoundError` / `NotAllowedError` / IO）→ toast 由 `useFileSystem.saveFile` 触发
+- [x] 写入失败（权限错误）→ `saveFileWithPermission` 自动弹系统授权框一次，授权后重试
+- [x] 三次全部失败（业务错误）→ toast「自动保存失败，请手动保存」 + dirty 保持
+- [x] 三次失败但权限被拒 → toast「未授予写入权限，请点击编辑器「保存」按钮重新授权」 + dirty 保持（不再退避）
+- [x] 重试中 `retryCount` 反映当前次数（0 / 1 / 2）
+- [x] 重试成功 → `dirty = false` + `retryCount = 0`
 
 #### 自动保存设置
 
-- [ ] 设置 `useSettingsStore.autoSave = false` → 不再触发自动保存
-- [ ] 重新开启 → 防抖重新工作
-- [ ] 调整 `autoSaveInterval` 为 1s → 防抖时间 = 1s（实测）
-- [ ] 调整为 30s → 防抖时间 = 30s
+- [x] 设置 `useSettingsStore.autoSave = false` → 不再触发自动保存
+- [x] 重新开启 → 防抖重新工作
+- [x] 调整 `autoSaveInterval` 为 1s → 防抖时间 = 1s（实测）
+- [x] 调整为 30s → 防抖时间 = 30s
 
 #### 内容回环检测
 
-- [ ] vditor input → setContent → store 更新 → 不再触发 useAutoSave 重新调度（M3 通过 `value === lastSavedContent` 判断避免）
+- [x] vditor input → setContent → store 更新 → 不再触发 useAutoSave 重新调度（M3 通过 `value === lastSavedContent` 判断避免）
 
 ### 4.2 状态机
 
@@ -189,10 +190,10 @@ M2 仅显示文件名；M3 加入：
 
 ### 4.3 质量验收
 
-- [ ] `npm run lint` 通过
-- [ ] `npm run build` 通过
-- [ ] `npm run format` 通过
-- [ ] 浏览器 console 无 vditor 警告（如 setValue 前后值不一致警告）
+- [x] `npm run lint` 通过
+- [x] `npm run build` 通过
+- [x] `npm run format` 通过
+- [x] 浏览器 console 无 vditor 警告（如 setValue 前后值不一致警告）
 
 ---
 

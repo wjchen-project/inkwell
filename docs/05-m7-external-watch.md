@@ -1,5 +1,6 @@
 # 05 · M7 · 外部修改检测（External Modification Detection）
 
+> ✅ **已通过验收**（v1.1.3 最终交付）
 > 第五阶段 · 里程碑 7 / 9
 > 关联设计文档：[04-design.md §6.3 useExternalWatcher](../04-design.md#63-useexternalwatcherhandleref-contentref) / [§5.4 ExternalChangeDialog](../04-design.md#54-externalchangedialog) / [§7.4 外部修改检测流程](../04-design.md#74-外部修改检测)
 > 关联需求：[Phase 3 §4.2 外部修改检测](../03-file-capabilities.md#42-外部修改检测-external-modification-detection) / [§9 #10 仅首次确认](../03-file-capabilities.md) / [§9 #13 仅下次保存前提示](../03-file-capabilities.md)
@@ -180,44 +181,44 @@ triggerSave():
 
 #### 轮询机制
 
-- [ ] 文件打开后，10s（默认）后第一次轮询
-- [ ] 轮询间隔可由 `useSettingsStore.externalWatchInterval` 调整
-- [ ] 关闭 `externalWatchEnabled` → 停止轮询；开启 → 恢复
-- [ ] 切换 tab / 最小化窗口 → 重新聚焦时立即检查一次
-- [ ] 离开编辑器路由 → `stopWatch` 被调用
-- [ ] 重新进入 → `startWatch` 被调用，状态正确
+- [x] 文件打开后，10s（默认）后第一次轮询
+- [x] 轮询间隔可由 `useSettingsStore.externalWatchInterval` 调整
+- [x] 关闭 `externalWatchEnabled` → 停止轮询；开启 → 恢复
+- [x] 切换 tab / 最小化窗口 → 重新聚焦时立即检查一次
+- [x] 离开编辑器路由 → `stopWatch` 被调用
+- [x] 重新进入 → `startWatch` 被调用，状态正确
 
 #### 检测外部修改
 
-- [ ] 用另一个编辑器修改文件 → 10s 内检测到 `lastModified` 变化
-- [ ] 检测到变化 + dirty=false → 自动重载（无需用户操作）
-- [ ] 自动重载后 dirty=false，内容与外部一致
-- [ ] 检测到变化 + dirty=true → 弹出 ExternalChangeDialog
+- [x] 用另一个编辑器修改文件 → 10s 内检测到 `lastModified` 变化
+- [x] 检测到变化 + dirty=false → 自动重载（无需用户操作）
+- [x] 自动重载后 dirty=false，内容与外部一致
+- [x] 检测到变化 + dirty=true → 弹出 ExternalChangeDialog
 
 #### 三选项逻辑
 
-- [ ] 「保留我的编辑」 → `externalState = 'pending'`，弹窗关闭
-- [ ] 「重新加载外部」 → 内容更新 + dirty=false + `externalState = 'clean'`
-- [ ] 「稍后处理」 → 弹窗关闭，`externalState` 保持当前值
+- [x] 「保留我的编辑」 → `externalState = 'pending'`，弹窗关闭
+- [x] 「重新加载外部」 → 内容更新 + dirty=false + `externalState = 'clean'`
+- [x] 「稍后处理」 → 弹窗关闭，`externalState` 保持当前值
 
 #### 「保留」后的保存二次确认
 
-- [ ] 选「保留我的编辑」后，下次自动保存（5s 后）→ 弹窗「外部已修改，继续保存将覆盖外部内容？」（确认 / 取消）
-- [ ] 用户确认 → 写入成功，dirty=false
-- [ ] 用户取消 → 不写入，dirty 保持
-- [ ] 首次确认后，下次保存**不再**弹窗（§9 #10 决议）
+- [x] 选「保留我的编辑」后，下次自动保存（5s 后）→ 弹窗「外部已修改，继续保存将覆盖外部内容？」（确认 / 取消）
+- [x] 用户确认 → 写入成功，dirty=false
+- [x] 用户取消 → 不写入，dirty 保持
+- [x] 首次确认后，下次保存**不再**弹窗（§9 #10 决议）
 
 #### 「稍后」后的行为
 
-- [ ] 选「稍后处理」后，**不**在轮询中重复弹窗（§9 #13 决议）
-- [ ] 仅在下次主动保存（自动或手动）前弹窗一次
-- [ ] 弹窗逻辑与「保留」分支的二次确认一致
+- [x] 选「稍后处理」后，**不**在轮询中重复弹窗（§9 #13 决议）
+- [x] 仅在下次主动保存（自动或手动）前弹窗一次
+- [x] 弹窗逻辑与「保留」分支的二次确认一致
 
 ### 4.2 性能与边界
 
-- [ ] 轮询失败（getMetadata 抛错）→ M7 静默，M8 处理
-- [ ] 多次快速轮询 → 节流生效（interval 至少 1s 一次，避免 IO 过频）
-- [ ] 文件大小 > 1MB 时重载有 toast 提示「正在加载大文件」
+- [x] 轮询失败（getMetadata 抛错）→ M7 静默，M8 处理
+- [x] 多次快速轮询 → 节流生效（interval 至少 1s 一次，避免 IO 过频）
+- [x] 文件大小 > 1MB 时重载有 toast 提示「正在加载大文件」
 
 ### 4.3 状态机
 
@@ -229,11 +230,11 @@ triggerSave():
 
 ### 4.4 质量验收
 
-- [ ] `npm run lint` 通过
-- [ ] `npm run build` 通过
-- [ ] `npm run format` 通过
-- [ ] console 无内存泄漏警告（轮询监听器正确清理）
-- [ ] 多次进入/离开编辑器后，无重复 `setInterval` 累积
+- [x] `npm run lint` 通过
+- [x] `npm run build` 通过
+- [x] `npm run format` 通过
+- [x] console 无内存泄漏警告（轮询监听器正确清理）
+- [x] 多次进入/离开编辑器后，无重复 `setInterval` 累积
 
 ### 4.5 「自我写入」识别（M7 收尾修复）
 

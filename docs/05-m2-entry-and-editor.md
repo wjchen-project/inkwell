@@ -1,5 +1,6 @@
 # 05 · M2 · 入口与编辑器骨架（Entry & Editor Skeleton）
 
+> ✅ **已通过验收**（v1.1.3 最终交付）
 > 第五阶段 · 里程碑 2 / 9
 > 关联设计文档：[04-design.md §4 路由设计](../04-design.md#4-路由设计) / [§5.1 VditorEditor](../04-design.md#51-vditoreditor) / [§5.2 TitleBar](../04-design.md#52-titlebar) / [§6.1 useFileSystem](../04-design.md#61-usefilesystem)
 > 关联需求：[Phase 2 §4.2 vditor 集成](../02-editor-and-experience.md) / [Phase 3 §4.1 另存为基础](../03-file-capabilities.md#41-另存为-save-as) / [Phase 3 §9 #15](../03-file-capabilities.md) 默认文件名 / [§9 #16](../03-file-capabilities.md) 扩展名
@@ -123,61 +124,61 @@ watch(value):
 
 #### 入口页（EntryView）
 
-- [ ] `/` 渲染两个按钮：「新建」「打开」
-- [ ] 「新建」点击 → `router.push('/editor?mode=new')`
-- [ ] 「打开」点击 → 触发 `useFileSystem.openFile()`
-- [ ] 「打开」成功 → `useEditorStore.loadFromFile({...})` + `router.push('/editor?mode=open')`
-- [ ] 「打开」用户取消 → 无路由跳转、无错误提示
-- [ ] 「打开」非 Chromium 浏览器 → `openFile` 抛错 → toast「当前浏览器不支持文件选择」
-- [ ] 「打开」文件选择器仅显示 `.md` / `.markdown`（实测或看 picker types）
+- [x] `/` 渲染两个按钮：「新建」「打开」
+- [x] 「新建」点击 → `router.push('/editor?mode=new')`
+- [x] 「打开」点击 → 触发 `useFileSystem.openFile()`
+- [x] 「打开」成功 → `useEditorStore.loadFromFile({...})` + `router.push('/editor?mode=open')`
+- [x] 「打开」用户取消 → 无路由跳转、无错误提示
+- [x] 「打开」非 Chromium 浏览器 → `openFile` 抛错 → toast「当前浏览器不支持文件选择」
+- [x] 「打开」文件选择器仅显示 `.md` / `.markdown`（实测或看 picker types）
 
 #### 编辑器页（EditorView）
 
-- [ ] `/editor?mode=new` → 进入空编辑器，标题栏显示 `untitled.md`
-- [ ] `/editor?mode=open` → 进入已加载内容的编辑器，标题栏显示实际文件名
-- [ ] 编辑区为 vditor WYSIWYG 实例（带工具栏）
-- [ ] 切换路由离开 `/editor` → vditor 实例被 `destroy()`（无 console warning / 内存泄漏）
+- [x] `/editor?mode=new` → 进入空编辑器，标题栏显示 `untitled.md`
+- [x] `/editor?mode=open` → 进入已加载内容的编辑器，标题栏显示实际文件名
+- [x] 编辑区为 vditor WYSIWYG 实例（带工具栏）
+- [x] 切换路由离开 `/editor` → vditor 实例被 `destroy()`（无 console warning / 内存泄漏）
 
 #### vditor 集成
 
-- [ ] vditor 模式为 WYSIWYG
-- [ ] 工具栏显示默认全量按钮
-- [ ] 中文 UI（Phase 2 §4.2 #8 决议）
-- [ ] 用户输入文字 → `update:value` 事件触发 → `useEditorStore.setContent` → `content` 与 `dirty` 更新
-- [ ] `value` prop 外部变化（如 `loadFromFile`）→ vditor 内容更新；不触发回环
-- [ ] 切换 theme prop → vditor 实例重建（或调用 setTheme，依赖 vditor 版本支持情况）
+- [x] vditor 模式为 WYSIWYG
+- [x] 工具栏显示默认全量按钮
+- [x] 中文 UI（Phase 2 §4.2 #8 决议）
+- [x] 用户输入文字 → `update:value` 事件触发 → `useEditorStore.setContent` → `content` 与 `dirty` 更新
+- [x] `value` prop 外部变化（如 `loadFromFile`）→ vditor 内容更新；不触发回环
+- [x] 切换 theme prop → vditor 实例重建（或调用 setTheme，依赖 vditor 版本支持情况）
 
 #### File System Access
 
-- [ ] `openFile` 接受 `.md` + `.markdown`
-- [ ] `saveFile` 写入已有句柄成功 → 返回 `true`
-- [ ] `saveAsFile` 弹保存对话框，默认文件名 = 当前 `fileName`
-- [ ] `saveAsFile` 取消 → 返回 `null`，状态不变
-- [ ] 写入失败 → toast「保存失败：<原因>」
+- [x] `openFile` 接受 `.md` + `.markdown`
+- [x] `saveFile` 写入已有句柄成功 → 返回 `true`
+- [x] `saveAsFile` 弹保存对话框，默认文件名 = 当前 `fileName`
+- [x] `saveAsFile` 取消 → 返回 `null`，状态不变
+- [x] 写入失败 → toast「保存失败：<原因>」
 
 #### 手动保存路径（M2 不含自动保存）
 
-- [ ] 用户编辑 → 内容变更
-- [ ] 用户通过 vditor 工具栏的「保存」按钮（或编程触发 `saveFile`）→ 内容写入磁盘
-- [ ] 写入成功后 `dirty=false`
-- [ ] 写入失败后 `dirty` 保持，`lastSavedContent` 不变
+- [x] 用户编辑 → 内容变更
+- [x] 用户通过 vditor 工具栏的「保存」按钮（或编程触发 `saveFile`）→ 内容写入磁盘
+- [x] 写入成功后 `dirty=false`
+- [x] 写入失败后 `dirty` 保持，`lastSavedContent` 不变
 
 ### 4.2 持久化状态
 
-- [ ] `useEditorStore.fileHandle` 在路由切换 / 刷新后丢失（这是预期的，本里程碑不持久化 handle）
-- [ ] `useSettingsStore` 配置跨路由切换持久（M1 已验证）
+- [x] `useEditorStore.fileHandle` 在路由切换 / 刷新后丢失（这是预期的，本里程碑不持久化 handle）
+- [x] `useSettingsStore` 配置跨路由切换持久（M1 已验证）
 
 ### 4.3 错误处理
 
-- [ ] `useFileSystem.saveFile(null, content)` → 抛 TypeError 或自动改走 `saveAsFile`（明确策略）
-- [ ] vditor 初始化抛错 → EditorView 显示错误占位「编辑器加载失败」
-- [ ] 文件权限撤销（M8 之前不主动处理，但保存会抛错）→ toast 提示
+- [x] `useFileSystem.saveFile(null, content)` → 抛 TypeError 或自动改走 `saveAsFile`（明确策略）
+- [x] vditor 初始化抛错 → EditorView 显示错误占位「编辑器加载失败」
+- [x] 文件权限撤销（M8 之前不主动处理，但保存会抛错）→ toast 提示
 
 ### 4.4 质量验收
 
-- [ ] `npm run lint` 通过
-- [ ] `npm run build` 通过（vditor CSS 应被构建产物包含）
-- [ ] `npm run format` 通过
+- [x] `npm run lint` 通过
+- [x] `npm run build` 通过（vditor CSS 应被构建产物包含）
+- [x] `npm run format` 通过
 
 ---
 

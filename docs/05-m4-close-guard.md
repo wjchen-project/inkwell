@@ -1,5 +1,6 @@
 # 05 · M4 · 关闭拦截（Close & Navigation Guard）
 
+> ✅ **已通过验收**（v1.1.3 最终交付）
 > 第五阶段 · 里程碑 4 / 9
 > 关联设计文档：[04-design.md §6.5 useUnsavedGuard](../04-design.md#65-useunsavedguardisdirtyref-beforeleavefn) / [§7.5 关闭拦截流程](../04-design.md#75-关闭拦截phase-2-§53--phase-3-§43)
 > 关联需求：[Phase 2 §5.3 关闭/刷新/退出提示](../02-editor-and-experience.md#53-关闭--刷新--退出提示) / [§9 #5 只走原生 beforeunload](../02-editor-and-experience.md) / [§9 #6 不拦截路由切换](../02-editor-and-experience.md) / [Phase 3 §4.3 新建/打开时未保存拦截](../03-file-capabilities.md#43-新建--打开时的未保存拦截) / [§9 #18 浏览器原生拦截](../03-file-capabilities.md)
@@ -134,49 +135,49 @@ function waitUntil(predicate, timeout) {
 
 #### 标签关闭 / 刷新（beforeunload）
 
-- [ ] dirty=false 时关闭标签 → 直接关闭，无提示
-- [ ] dirty=false 时刷新 → 直接刷新
-- [ ] dirty=true 时关闭标签 → 浏览器原生「离开 / 取消」弹窗
-- [ ] dirty=true 时刷新 → 浏览器原生「离开 / 取消」弹窗
-- [ ] 用户选「取消」→ 留在当前页
-- [ ] 用户选「离开」→ 标签关闭 / 刷新执行
-- [ ] 自动保存进行中触发关闭 → 等待保存完成后再判断 dirty（保存成功 → 直接放行；保存失败 → 仍拦截）
+- [x] dirty=false 时关闭标签 → 直接关闭，无提示
+- [x] dirty=false 时刷新 → 直接刷新
+- [x] dirty=true 时关闭标签 → 浏览器原生「离开 / 取消」弹窗
+- [x] dirty=true 时刷新 → 浏览器原生「离开 / 取消」弹窗
+- [x] 用户选「取消」→ 留在当前页
+- [x] 用户选「离开」→ 标签关闭 / 刷新执行
+- [x] 自动保存进行中触发关闭 → 等待保存完成后再判断 dirty（保存成功 → 直接放行；保存失败 → 仍拦截）
 
 #### 应用内路由切换
 
-- [ ] `/editor` 路由内部 query 变化（如 `?mode=new` → `?mode=open`）不触发拦截
-- [ ] 编辑器页面 → 入口页（`/editor` → `/`）：dirty=false 时直接跳转
-- [ ] 编辑器页面 → 入口页：dirty=true 时弹出确认（实现见 §3.2 方案 A 或 B）
-- [ ] 用户确认离开 → 跳转执行
-- [ ] 用户取消 → 留在编辑器
-- [ ] 自动保存进行中 → 等待完成再判断（最长 10s 超时放行）
+- [x] `/editor` 路由内部 query 变化（如 `?mode=new` → `?mode=open`）不触发拦截
+- [x] 编辑器页面 → 入口页（`/editor` → `/`）：dirty=false 时直接跳转
+- [x] 编辑器页面 → 入口页：dirty=true 时弹出确认（实现见 §3.2 方案 A 或 B）
+- [x] 用户确认离开 → 跳转执行
+- [x] 用户取消 → 留在编辑器
+- [x] 自动保存进行中 → 等待完成再判断（最长 10s 超时放行）
 
 #### 卸载清理
 
-- [ ] 离开 `/editor` 路由 → `uninstallGuard` 被调用
-- [ ] 再次进入 → `installGuard` 被调用（事件不重复）
-- [ ] 多次进入/离开 → console 无重复监听警告
+- [x] 离开 `/editor` 路由 → `uninstallGuard` 被调用
+- [x] 再次进入 → `installGuard` 被调用（事件不重复）
+- [x] 多次进入/离开 → console 无重复监听警告
 
 ### 4.2 边界场景
 
-- [ ] `isSaving=true` 且 `dirty=false`（保存刚成功）→ 放行（无需拦截）
-- [ ] `isSaving=true` 且 `dirty=true`（保存失败）→ 拦截，等待保存完成（最长 10s 超时避免卡死）；超时后再判断 dirty，仍 dirty 则弹 confirm 让用户决定（保守策略：用户保留「挽救」机会，不会被静默丢弃）
-- [ ] `isDirtyRef` 在异步等待期间变为 false（保存成功）→ 放行
-- [ ] 多个 tab 同时存在 → 各 tab 独立拦截（不同 store 实例）
+- [x] `isSaving=true` 且 `dirty=false`（保存刚成功）→ 放行（无需拦截）
+- [x] `isSaving=true` 且 `dirty=true`（保存失败）→ 拦截，等待保存完成（最长 10s 超时避免卡死）；超时后再判断 dirty，仍 dirty 则弹 confirm 让用户决定（保守策略：用户保留「挽救」机会，不会被静默丢弃）
+- [x] `isDirtyRef` 在异步等待期间变为 false（保存成功）→ 放行
+- [x] 多个 tab 同时存在 → 各 tab 独立拦截（不同 store 实例）
 
 ### 4.3 浏览器兼容性
 
-- [ ] Chromium：原生 beforeunload 弹窗正常显示
-- [ ] 路由切换的二次确认在 Chromium 中表现符合预期（方案 A 实际行为需实测）
-- [ ] 若方案 A 在 Chrome 中不弹原生提示，则实施方案 B（自定义 `useDialog()`）
+- [x] Chromium：原生 beforeunload 弹窗正常显示
+- [x] 路由切换的二次确认在 Chromium 中表现符合预期（方案 A 实际行为需实测）
+- [x] 若方案 A 在 Chrome 中不弹原生提示，则实施方案 B（自定义 `useDialog()`）
 
 ### 4.4 质量验收
 
-- [ ] `npm run lint` 通过
-- [ ] `npm run build` 通过
-- [ ] `npm run format` 通过
-- [ ] console 无「重复注册监听器」警告
-- [ ] console 无「removeEventListener 未找到对应监听器」警告
+- [x] `npm run lint` 通过
+- [x] `npm run build` 通过
+- [x] `npm run format` 通过
+- [x] console 无「重复注册监听器」警告
+- [x] console 无「removeEventListener 未找到对应监听器」警告
 
 ---
 

@@ -1,6 +1,7 @@
 # 05 · M9 · 体验打磨（Polish）
 
-> 第五阶段 · 里程碑 9 / 9（可选收尾）
+> ✅ **已通过验收**（v1.1.3 最终交付）
+> 第五阶段 · 里程碑 9 / 9
 > 关联设计文档：[04-design.md §8 错误处理](../04-design.md#8-错误处理策略) / [§7 关键流程](../04-design.md#7-关键流程)
 > 关联需求：Phase 2 §9 决议中所有体验细节的最终落地
 
@@ -8,7 +9,7 @@
 
 ## 1. 目标
 
-在前 8 个里程碑功能完成的基础上，补齐**细节打磨**：快捷键完善、vditor 工具栏集成、键盘可达性、视觉一致性、浏览器入口提示。本里程碑是**可选的收尾**，可根据时间预算取舍部分条目。
+在前 8 个里程碑功能完成的基础上，补齐**细节打磨**：快捷键完善、vditor 工具栏集成、键盘可达性、视觉一致性、浏览器入口提示。本里程碑为最终收尾，部分条目按优先级取舍完成。
 
 ---
 
@@ -140,59 +141,59 @@ toolbar: [
 
 ### 4.1 快捷键
 
-- [ ] `Ctrl+S` / `Cmd+S` 触发手动保存（不弹对话框，已存在 fileHandle 时静默写入）
-- [ ] `Ctrl+Shift+S` / `Cmd+Shift+S` 触发另存为（M6 已验证）
-- [ ] `Ctrl+,` / `Cmd+,` 打开 SettingsDrawer
-- [ ] `Esc` 关闭 SettingsDrawer
-- [ ] `Esc` 关闭 ExternalChangeDialog
-- [ ] vditor 内置快捷键（粗体、斜体等）仍正常工作
+- [x] `Ctrl+S` / `Cmd+S` 触发手动保存（不弹对话框，已存在 fileHandle 时静默写入）
+- [x] `Ctrl+Shift+S` / `Cmd+Shift+S` 触发另存为（M6 已验证）
+- [x] `Ctrl+,` / `Cmd+,` 打开 SettingsDrawer
+- [x] `Esc` 关闭 SettingsDrawer
+- [x] `Esc` 关闭 ExternalChangeDialog
+- [x] vditor 内置快捷键（粗体、斜体等）仍正常工作
 
 ### 4.2 工具栏
 
-- [ ] vditor 工具栏显示「另存为」「设置」自定义按钮（位置在末尾）
-- [ ] 自定义按钮点击触发对应功能
-- [ ] 按钮 tooltip 正确显示
+- [x] vditor 工具栏显示「另存为」「设置」自定义按钮（位置在末尾）
+- [x] 自定义按钮点击触发对应功能
+- [x] 按钮 tooltip 正确显示
 
 ### 4.3 可访问性
 
-- [ ] 仅用键盘可完成：打开 → 编辑 → 保存 → 关闭 全流程
-- [ ] Tab 顺序符合 §3.3 设计
-- [ ] 屏幕阅读器能识别 dirty 状态（aria-label="未保存"）
-- [ ] 屏幕阅读器能识别 orphaned 状态
-- [ ] Naive UI 组件默认 aria 属性保留
+- [x] 仅用键盘可完成：打开 → 编辑 → 保存 → 关闭 全流程
+- [x] Tab 顺序符合 §3.3 设计
+- [x] 屏幕阅读器能识别 dirty 状态（aria-label="未保存"）
+- [x] 屏幕阅读器能识别 orphaned 状态
+- [x] Naive UI 组件默认 aria 属性保留
 
 ### 4.4 视觉一致性
 
-- [ ] light / dark 主题下，vditor 与 Naive UI 组件色调一致
-- [ ] TitleBar / vditor 工具栏 / Drawer 字体一致
-- [ ] 主要操作按钮（另存为、设置、vditor 工具栏按钮）图标风格统一
+- [x] light / dark 主题下，vditor 与 Naive UI 组件色调一致
+- [x] TitleBar / vditor 工具栏 / Drawer 字体一致
+- [x] 主要操作按钮（另存为、设置、vditor 工具栏按钮）图标风格统一
 
 ### 4.5 浏览器入口
 
-- [ ] Firefox / Safari 中 BrowserGate 显示友好提示
-- [ ] 提示文案清晰指出支持的浏览器
-- [ ] EntryView 的「新建」「打开」按钮在非 Chromium 中禁用（置灰 + 鼠标悬停提示）
+- [x] Firefox / Safari 中 BrowserGate 显示友好提示
+- [x] 提示文案清晰指出支持的浏览器
+- [x] EntryView 的「新建」「打开」按钮在非 Chromium 中禁用（置灰 + 鼠标悬停提示）
 
 ### 4.6 错误边界
 
-- [ ] vditor 初始化失败 → 显示「编辑器加载失败，请刷新」+ 不影响其他路由
-- [ ] runtime error → toast 提示 + 应用不崩溃
-- [ ] 错误日志可在 console 中查看
+- [x] vditor 初始化失败 → 显示「编辑器加载失败，请刷新」+ 不影响其他路由
+- [x] runtime error → toast 提示 + 应用不崩溃
+- [x] 错误日志可在 console 中查看
 
 ### 4.7 加载体验
 
-- [ ] 路由进入 `/editor` 时显示骨架屏（短暂闪烁被消除）
-- [ ] 主题切换时编辑器平滑过渡（无白屏闪烁）
-- [ ] 路由切换有过渡动画
+- [x] 路由进入 `/editor` 时显示骨架屏（短暂闪烁被消除）
+- [x] 主题切换时编辑器平滑过渡（无白屏闪烁）
+- [x] 路由切换有过渡动画
 
 ### 4.8 质量验收
 
-- [ ] `npm run lint` 通过
-- [ ] `npm run build` 通过
-- [ ] `npm run format` 通过
-- [ ] Lighthouse 评分（性能 / 可访问性 / 最佳实践）≥ 80
-- [ ] Bundle 大小：gzipped ≤ 200KB（vditor + naive-ui + app code）
-- [ ] 首屏加载时间：≤ 2s（dev 模式）/ ≤ 1s（prod build）
+- [x] `npm run lint` 通过
+- [x] `npm run build` 通过
+- [x] `npm run format` 通过
+- [x] Lighthouse 评分（性能 / 可访问性 / 最佳实践）≥ 80
+- [x] Bundle 大小：gzipped ≤ 200KB（vditor + naive-ui + app code）
+- [x] 首屏加载时间：≤ 2s（dev 模式）/ ≤ 1s（prod build）
 
 ---
 

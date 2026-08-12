@@ -1,5 +1,6 @@
 # 05 · M5 · 主题 + 设置（Theme & Settings Drawer）
 
+> ✅ **已通过验收**（v1.1.3 最终交付）
 > 第五阶段 · 里程碑 5 / 9
 > 关联设计文档：[04-design.md §3.2 useSettingsStore](../04-design.md#32-usesettingsstore) / [§5.3 SettingsDrawer](../04-design.md#53-settingsdrawer) / [§6.4 useTheme](../04-design.md#64-usetheme)
 > 关联需求：[Phase 2 §4.2 主题切换](../02-editor-and-experience.md) / [§6 设置项](../02-editor-and-experience.md#6-设置项) / [§9 #1 localStorage 持久化](../02-editor-and-experience.md) / [§9 #2 主题联动 Naive UI](../02-editor-and-experience.md) / [§9 #3 Drawer 侧滑](../02-editor-and-experience.md)
@@ -123,53 +124,53 @@ sections:
 
 #### 主题切换
 
-- [ ] SettingsDrawer 选择 `light` → vditor 主题变 `classic`，Naive UI 主题变浅色
-- [ ] 选择 `dark` → vditor 主题变 `dark`，Naive UI 主题变 `darkTheme`
-- [ ] 选择 `auto` → 系统浅色 → 实际为 light；系统深色 → 实际为 dark
-- [ ] 系统主题变化（`auto` 模式下切换系统）→ 应用主题实时跟随
-- [ ] 切换主题不影响 dirty 状态与内容
+- [x] SettingsDrawer 选择 `light` → vditor 主题变 `classic`，Naive UI 主题变浅色
+- [x] 选择 `dark` → vditor 主题变 `dark`，Naive UI 主题变 `darkTheme`
+- [x] 选择 `auto` → 系统浅色 → 实际为 light；系统深色 → 实际为 dark
+- [x] 系统主题变化（`auto` 模式下切换系统）→ 应用主题实时跟随
+- [x] 切换主题不影响 dirty 状态与内容
 
 #### 设置持久化
 
-- [ ] 修改任一设置项 → 300ms 后 `localStorage['md-editor-settings']` 更新
-- [ ] 刷新页面 → 设置恢复
-- [ ] 关闭浏览器再打开 → 设置仍恢复
-- [ ] 设置项值类型正确（`autoSave: boolean`、`autoSaveInterval: number`）
+- [x] 修改任一设置项 → 300ms 后 `localStorage['md-editor-settings']` 更新
+- [x] 刷新页面 → 设置恢复
+- [x] 关闭浏览器再打开 → 设置仍恢复
+- [x] 设置项值类型正确（`autoSave: boolean`、`autoSaveInterval: number`）
 
 #### 设置 UI
 
-- [ ] Drawer 从右侧滑出（`placement="right"`）
-- [ ] 自动保存开关关闭时，间隔 slider 禁用
-- [ ] 外部修改检测开关关闭时，间隔 slider 禁用
-- [ ] Slider 显示当前数值（如「5 秒」）
-- [ ] Drawer 关闭动画流畅
+- [x] Drawer 从右侧滑出（`placement="right"`）
+- [x] 自动保存开关关闭时，间隔 slider 禁用
+- [x] 外部修改检测开关关闭时，间隔 slider 禁用
+- [x] Slider 显示当前数值（如「5 秒」）
+- [x] Drawer 关闭动画流畅
 
 #### 关于区（可选）
 
-- [ ] 显示版本号（从 `package.json` 读取）
-- [ ] GitHub 链接可点击
+- [x] 显示版本号（从 `package.json` 读取）
+- [x] GitHub 链接可点击
 
 ### 4.2 联动验收
 
-- [ ] dark 主题下：vditor 工具栏背景色、文本色均为深色
-- [ ] dark 主题下：Naive UI 组件（Switch、Slider、Drawer）均为深色
-- [ ] light 主题下：vditor 与 Naive UI 均为浅色
-- [ ] 切换过程中无组件颜色残留
+- [x] dark 主题下：vditor 工具栏背景色、文本色均为深色
+- [x] dark 主题下：Naive UI 组件（Switch、Slider、Drawer）均为深色
+- [x] light 主题下：vditor 与 Naive UI 均为浅色
+- [x] 切换过程中无组件颜色残留
 
 ### 4.3 性能与边界
 
-- [ ] 主题切换不触发自动保存（避免无意义 IO）
-- [ ] 主题切换不破坏 vditor 编辑状态（内容、滚动位置保持）
-- [ ] `auto` 模式下系统主题变化不导致整页刷新
-- [ ] localStorage 写入防抖生效：连续修改多个设置 → 仅最后一次触发 IO
+- [x] 主题切换不触发自动保存（避免无意义 IO）
+- [x] 主题切换不破坏 vditor 编辑状态（内容、滚动位置保持）
+- [x] `auto` 模式下系统主题变化不导致整页刷新
+- [x] localStorage 写入防抖生效：连续修改多个设置 → 仅最后一次触发 IO
 
 ### 4.4 质量验收
 
-- [ ] `npm run lint` 通过
-- [ ] `npm run build` 通过
-- [ ] `npm run format` 通过
-- [ ] console 无 Naive UI 主题警告
-- [ ] console 无 vditor 主题切换错误
+- [x] `npm run lint` 通过
+- [x] `npm run build` 通过
+- [x] `npm run format` 通过
+- [x] console 无 Naive UI 主题警告
+- [x] console 无 vditor 主题切换错误
 
 ---
 
